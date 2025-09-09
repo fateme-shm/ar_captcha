@@ -1,0 +1,23 @@
+name: example
+description: "example for ar_captcha package and usage of package in example file"
+
+version: 1.0.0+1
+publish_to: 'none'
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ar_captcha:
+    path: ../
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: 6.0.0
+
+flutter:
+  uses-material-design: true
