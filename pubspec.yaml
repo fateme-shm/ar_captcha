@@ -12,7 +12,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  web: ^1.1.1
   webview_flutter: ^4.13.0
+  modal_bottom_sheet: ^3.0.0
   flutter_inappwebview: ^6.1.5
 
 dev_dependencies:

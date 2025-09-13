@@ -1,5 +1,4 @@
-/// A Calculator.
-class Calculator {
-  /// Returns [value] plus 1.
-  int addOne(int value) => value + 1;
-}
+library;
+
+export 'res/enums/captcha_type.dart';
+export 'controller/ar_captcha_controller.dart';
