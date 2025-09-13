@@ -39,15 +39,15 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Center(
         child: ElevatedButton(
           onPressed: () {
             arCaptchaController.showCaptcha(
               context: context,
-              mode: CaptchaType.modalBottomSheet,
+              mode: CaptchaType.dialog,
               onSuccess: (token) {
                 // The success function return captcha token key
                 debugPrint("Captcha success: $token");

@@ -1,39 +1,91 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# ar_captcha
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
+A Flutter package to easily integrate **ArCaptcha** into your apps.  
+Supports multiple display modes (`dialog`, `screen`, `modal bottom sheet`) with a modern UI, loader,
+and full customization.
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
+ArCaptcha is a privacy-friendly captcha solution designed to verify real users without intrusive
+challenges.
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+---
 
 ## Features
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+- ✅ Show captcha in **dialog, screen, or modal bottom sheet**
+- ✅ Built-in **loader animation** while captcha loads
+- ✅ Works on **Android, iOS, and Web**
+- ✅ **Customizable height** for captcha container
+- ✅ Supports **dark and light theme** modes
+- ✅ Easy **success/error callbacks**
+- ✅ Secure HTML + JS integration with Flutter bridges
 
-## Getting started
+---
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+## Installation
+
+Add this to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  ar_captcha: ^1.0.0
+```
+
+Then run:
+
+```bash
+flutter pub get
+```
 
 ## Usage
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
-
 ```dart
-const like = 'sample';
+import 'package:flutter/material.dart';
+import 'package:ar_captcha/ar_captcha.dart';
+
+class MyCaptchaScreen extends StatelessWidget {
+  final ArCaptchaController _controller = ArCaptchaController(
+    lang: 'en',
+    siteKey: 'YOUR_SITE_KEY',
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Captcha Example")),
+      body: Center(
+        child: ElevatedButton(
+          onPressed: () {
+            _controller.showCaptcha(
+              context: context,
+              mode: CaptchaType.dialog,
+              onSuccess: (token) {
+                debugPrint("Captcha success: $token");
+              },
+              onError: (error) {
+                debugPrint("Captcha failed: $error");
+              },
+            );
+          },
+          child: const Text("Show Captcha"),
+        ),
+      ),
+    );
+  }
+}
+
 ```
 
-## Additional information
+## API Reference
 
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+### `ArCaptchaController`
+
+| Parameter            | Type        | Description                                  | Default                              |
+|----------------------|-------------|----------------------------------------------|--------------------------------------|
+| `siteKey`            | `String`    | Your ArCaptcha **site key** (required).      | –                                    |
+| `lang`               | `String`    | Language code for captcha.                   | `en`                                 |
+| `domainUrl`          | `String`    | Domain name of the app.                      | `localhost`                          |
+| `themeMode`          | `ThemeMode` | Theme mode (light/dark).                     | `light`                              |
+| `captchaHeight`      | `double`    | Height of the captcha widget container.      | `550`                                |
+| `onErrorMessage`     | `String`    | Default error message if captcha fails.      | `"Something went wrong, try again!"` |
+| `enableModalDrag`    | `bool`      | Controls whether the modal can be dragged.   | `true`                               |
+| `isModalDismissible` | `bool`      | Controls whether the modal can be dismissed. | `true`                               |
