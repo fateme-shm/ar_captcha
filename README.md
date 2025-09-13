@@ -1,15 +1,26 @@
-**Platform support:** Android | iOS | Web
-
 # ar_captcha
 
-A Flutter package to easily integrate **ArCaptcha** into your apps.  
-Supports multiple display modes (`dialog`, `screen`, `modal bottom sheet`) with a modern UI, loader,
-and full customization.
+A Flutter package to easily integrate ARCaptcha into your apps. It supports multiple display
+modes—dialog, screen, and modal bottom sheet—with a modern UI, smooth loader animations, and full
+customization options.
 
-ArCaptcha is a privacy-friendly captcha solution designed to verify real users without intrusive
-challenges.
+ARCaptcha is a privacy-friendly CAPTCHA solution designed to verify real users without intrusive
+challenges, providing a secure and user-friendly way to prevent bots and automated abuse.
 
+Official ARCaptcha service: https://arcaptcha.co/en/
 ---
+
+## Platform support:
+
+- iOS
+- Web
+- Android
+
+![ArCaptcha Demo]
+</br>
+</br>
+<img src="https://raw.githubusercontent.com/fateme-shm/ar_captcha/main/demo.png" width="300" alt="ArCaptcha Demo" />
+<img src="https://raw.githubusercontent.com/fateme-shm/ar_captcha/main/demo_1.png" width="300" alt="ArCaptcha Demo" />
 
 ## Features
 
@@ -29,7 +40,7 @@ Add this to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  ar_captcha: ^1.0.1
+  ar_captcha: ^1.0.2
 ```
 
 Then run:
@@ -79,16 +90,14 @@ class MyCaptchaScreen extends StatelessWidget {
 
 ## API Reference
 
-### `ArCaptchaController`
-
-| Parameter            | Type          | Description                                                | Default                            |
-|----------------------|---------------|------------------------------------------------------------|------------------------------------|
-| `mode`               | `CaptchaType` | Show captcha in **dialog, screen, or modal bottom sheet**. | `CaptchaType.dialog`               |
-| `siteKey`            | `String`      | Your ArCaptcha **site key** (required).                    | –                                  |
-| `lang`               | `String`      | Language code for captcha.                                 | `en`                               |
-| `domainUrl`          | `String`      | Domain name of the app.                                    | `localhost`                        |
-| `themeMode`          | `ThemeMode`   | Theme mode (light/dark).                                   | `light`                            |
-| `captchaHeight`      | `double`      | Height of the captcha widget container.                    | `550`                              |
-| `onErrorMessage`     | `String`      | Default error message if captcha fails.                    | `Something went wrong, try again!` |
-| `enableModalDrag`    | `bool`        | Controls whether the modal can be dragged.                 | `true`                             |
-| `isModalDismissible` | `bool`        | Controls whether the modal can be dismissed.               | `true`                             |
+| Parameter            | Type          | Description                                   | Default                            |
+|----------------------|---------------|-----------------------------------------------|------------------------------------|
+| `mode`               | `CaptchaType` | Show captcha in **dialog, screen, or modal**. | `CaptchaType.dialog`               |
+| `siteKey`            | `String`      | Your ArCaptcha **site key** (required).       | –                                  |
+| `lang`               | `String`      | Language code for captcha.                    | `en`                               |
+| `domainUrl`          | `String`      | Domain name of the app.                       | `localhost`                        |
+| `themeMode`          | `ThemeMode`   | Theme mode (light/dark).                      | `light`                            |
+| `captchaHeight`      | `double`      | Height of the captcha widget container.       | `550`                              |
+| `onErrorMessage`     | `String`      | Default error message if captcha fails.       | `Something went wrong, try again!` |
+| `enableModalDrag`    | `bool`        | Controls whether the modal can be dragged.    | `true`                             |
+| `isModalDismissible` | `bool`        | Controls whether the modal can be dismissed.  | `true`                             |

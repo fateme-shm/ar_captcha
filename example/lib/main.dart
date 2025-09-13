@@ -33,6 +33,7 @@ class _MyHomePageState extends State<MyHomePage> {
   ArCaptchaController arCaptchaController = ArCaptchaController(
     lang: 'en',
     siteKey: 'YOUR_SITE_KEY',
+    domainUrl: 'https://example.com',
   );
 
   @override

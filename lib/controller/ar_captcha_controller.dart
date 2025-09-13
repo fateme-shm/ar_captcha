@@ -20,6 +20,7 @@ class ArCaptchaController {
   final String lang;
 
   /// The domain name of the app (default: `localhost`).
+  /// If use in production mood you should pass domain Url
   final String domainUrl;
 
   /// Default error message when captcha fails.
@@ -158,6 +159,7 @@ class ArCaptchaController {
           <div class="arcaptcha"
                data-site-key="$siteKey"
                data-lang="$lang"
+               data-theme="${themeMode == ThemeMode.light ? 'light' : 'dark'}"
                data-callback="onVerified"
                data-error-callback="onError">
           </div>

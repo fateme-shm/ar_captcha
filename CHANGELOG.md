@@ -11,3 +11,7 @@
 
 # 1.0.1
 - Fix some bug
+
+# 1.0.2
+- Add supported platform
+- Added support for dark theme
