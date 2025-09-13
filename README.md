@@ -27,7 +27,7 @@ Add this to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  ar_captcha: ^1.0.0
+  ar_captcha: ^1.0.1
 ```
 
 Then run:
@@ -79,14 +79,14 @@ class MyCaptchaScreen extends StatelessWidget {
 
 ### `ArCaptchaController`
 
-| Parameter            | Type          | Description                                                | Default                              |
-|----------------------|---------------|------------------------------------------------------------|--------------------------------------|
-| `mode`               | `CaptchaType` | Show captcha in **dialog, screen, or modal bottom sheet**. | `CaptchaType.dialog`                 |
-| `siteKey`            | `String`      | Your ArCaptcha **site key** (required).                    | –                                    |
-| `lang`               | `String`      | Language code for captcha.                                 | `en`                                 |
-| `domainUrl`          | `String`      | Domain name of the app.                                    | `localhost`                          |
-| `themeMode`          | `ThemeMode`   | Theme mode (light/dark).                                   | `light`                              |
-| `captchaHeight`      | `double`      | Height of the captcha widget container.                    | `550`                                |
-| `onErrorMessage`     | `String`      | Default error message if captcha fails.                    | `"Something went wrong, try again!"` |
-| `enableModalDrag`    | `bool`        | Controls whether the modal can be dragged.                 | `true`                               |
-| `isModalDismissible` | `bool`        | Controls whether the modal can be dismissed.               | `true`                               |
+| Parameter            | Type          | Description                                                | Default                            |
+|----------------------|---------------|------------------------------------------------------------|------------------------------------|
+| `mode`               | `CaptchaType` | Show captcha in **dialog, screen, or modal bottom sheet**. | `CaptchaType.dialog`               |
+| `siteKey`            | `String`      | Your ArCaptcha **site key** (required).                    | –                                  |
+| `lang`               | `String`      | Language code for captcha.                                 | `en`                               |
+| `domainUrl`          | `String`      | Domain name of the app.                                    | `localhost`                        |
+| `themeMode`          | `ThemeMode`   | Theme mode (light/dark).                                   | `light`                            |
+| `captchaHeight`      | `double`      | Height of the captcha widget container.                    | `550`                              |
+| `onErrorMessage`     | `String`      | Default error message if captcha fails.                    | `Something went wrong, try again!` |
+| `enableModalDrag`    | `bool`        | Controls whether the modal can be dragged.                 | `true`                             |
+| `isModalDismissible` | `bool`        | Controls whether the modal can be dismissed.               | `true`                             |

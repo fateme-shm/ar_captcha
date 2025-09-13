@@ -8,3 +8,6 @@
 - Provided `ArCaptchaController` for configuration and lifecycle handling.
 - Added success and error callbacks to handle captcha responses.
 - Web and mobile platform support with unified API.
+
+# 1.0.0
+- Fix some bug
