@@ -24,13 +24,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
-  plugin:
-    platforms:
-      android:
-        package: ar_captcha
-        pluginClass: ArCaptchaController
-      ios:
-        pluginClass: ArCaptchaController
-      web:
-        pluginClass: ArCaptchaController

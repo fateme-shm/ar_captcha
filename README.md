@@ -1,3 +1,5 @@
+**Platform support:** Android | iOS | Web
+
 # ar_captcha
 
 A Flutter package to easily integrate **ArCaptcha** into your apps.  
