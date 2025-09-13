@@ -9,5 +9,5 @@
 - Added success and error callbacks to handle captcha responses.
 - Web and mobile platform support with unified API.
 
-# 1.0.0
+# 1.0.1
 - Fix some bug
