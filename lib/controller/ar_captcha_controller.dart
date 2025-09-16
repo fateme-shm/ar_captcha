@@ -17,7 +17,7 @@ class ArCaptchaController {
   /// Your ArCaptcha **site key** (required).
   final String siteKey;
 
-  /// The language code (default: `en`).
+  /// The language code (`en` or `fa`).
   final String lang;
 
   /// Set color of every colored element in widget.
@@ -79,47 +79,18 @@ class ArCaptchaController {
     _htmlContent = _buildHtmlSection();
   }
 
-  /// Converts a [Color] object into a human-readable string.
+  /// Converts a [Color] object to a CSS-compatible hex color string in the format `#RRGGBB`.
   ///
-  /// - If the [color] matches one of the predefined Material colors
-  ///   (e.g. [Colors.black], [Colors.red]), it returns the associated name
-  ///   such as `"black"` or `"red"`.
-  /// - If the [color] does not have a predefined name in [colorNames],
-  ///   the method falls back to returning the raw ARGB hex value
-  ///   (e.g. `"ff000000"`).
+  /// This function ignores the alpha channel (opacity), making it suitable for contexts
+  /// that expect opaque colors (e.g., HTML/CSS attributes, web widgets).
   ///
   /// Example:
-  /// ```dart
-  /// print(colorToString(Colors.blue));       // "blue"
-  /// print(colorToString(Color(0xFF123456))); // "ff123456"
-  /// ```
+  ///   - `Colors.red` → `"#FF0000"`
+  ///   - `Color(0xFFFF5722)` → `"#FF5722"`
+  ///
+  /// Note: If transparency is required, consider using an `rgba()` format instead.
   String colorToString(Color color) {
-    // Map of commonly used Material Colors to their string names.
-    Map<Color, String> colorNames = {
-      Colors.black: "black",
-      Colors.white: "white",
-      Colors.red: "red",
-      Colors.green: "green",
-      Colors.blue: "blue",
-      Colors.yellow: "yellow",
-      Colors.orange: "orange",
-      Colors.purple: "purple",
-      Colors.grey: "grey",
-      Colors.pink: "pink",
-      Colors.teal: "teal",
-      Colors.cyan: "cyan",
-      Colors.lime: "lime",
-      Colors.indigo: "indigo",
-      Colors.brown: "brown",
-      Colors.amber: "amber",
-      Colors.lightBlue: "lightBlue",
-      Colors.lightGreen: "lightGreen",
-      Colors.deepOrange: "deepOrange",
-      Colors.deepPurple: "deepPurple",
-      Colors.blueGrey: "blueGrey",
-    };
-
-    return colorNames[color] ?? "black";
+    return '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
   }
 
   /// Builds the ArCaptcha HTML content.

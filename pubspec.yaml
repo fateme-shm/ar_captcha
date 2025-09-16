@@ -1,6 +1,6 @@
 name: ar_captcha
 description: "Flutter plugin for integrating ARCaptcha, providing a secure and customizable captcha solution for Android, IOS, Web apps."
-version: 1.0.3
+version: 1.0.4
 homepage: https://github.com/fateme-shm/ar_captcha
 repository: https://github.com/fateme-shm/ar_captcha
 issue_tracker: https://github.com/fateme-shm/ar_captcha/issues

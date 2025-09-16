@@ -23,3 +23,7 @@
 - Updated documentation for ArCaptchaController properties and HTML data-* attributes.
 - Minor bug fixes and performance improvements for WebView and InAppWebView integration.
 - Fix reported bug
+
+# 1.0.4
+- Change color convertor to get all color data
+
