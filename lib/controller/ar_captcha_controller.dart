@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
+import '/../res/enums/data_size.dart';
 import '/../res/enums/captcha_type.dart';
 import '/../widgets/custom_modal_bottom_sheet.dart';
 import '/../widgets/loader/ar_captcha_platform.dart';
@@ -19,9 +20,26 @@ class ArCaptchaController {
   /// The language code (default: `en`).
   final String lang;
 
+  /// Set color of every colored element in widget.
+  /// Like checkbox color
+  /// See supported color in colorToString() function
+  final Color color;
+
   /// The domain name of the app (default: `localhost`).
   /// If use in production mood you should pass domain Url
-  final String domainUrl;
+  final String domain;
+
+  /// Controls the display mode of the captcha checkbox.
+  ///
+  /// - `DataSize.normal` (default) → Checkbox is visible and shown automatically before captcha execution.
+  /// - `DataSize.invisible` → Checkbox is hidden; captcha executes without showing the checkbox.
+  final DataSize dataSize;
+
+  /// Controls whether error messages appear below the captcha checkbox.
+  ///
+  /// - `0` (default) → Error messages are shown.
+  /// - `1` → Error messages are disabled.
+  final int errorPrint;
 
   /// Default error message when captcha fails.
   final String onErrorMessage;
@@ -30,7 +48,7 @@ class ArCaptchaController {
   late final String _htmlContent;
 
   /// The theme mode (light or dark).
-  final ThemeMode themeMode;
+  final ThemeMode theme;
 
   /// Controls whether the modal bottom sheet can be dragged
   /// Defaults to `true` if not set.
@@ -50,12 +68,58 @@ class ArCaptchaController {
   ArCaptchaController({
     required this.siteKey,
     this.lang = 'en',
-    this.domainUrl = 'localhost',
+    this.domain = 'localhost',
     this.onErrorMessage = 'Something went wrong, try again!',
-    this.themeMode = ThemeMode.light,
+    this.errorPrint = 0,
     this.captchaHeight = 550,
+    this.color = Colors.black,
+    this.theme = ThemeMode.light,
+    this.dataSize = DataSize.normal,
   }) {
     _htmlContent = _buildHtmlSection();
+  }
+
+  /// Converts a [Color] object into a human-readable string.
+  ///
+  /// - If the [color] matches one of the predefined Material colors
+  ///   (e.g. [Colors.black], [Colors.red]), it returns the associated name
+  ///   such as `"black"` or `"red"`.
+  /// - If the [color] does not have a predefined name in [colorNames],
+  ///   the method falls back to returning the raw ARGB hex value
+  ///   (e.g. `"ff000000"`).
+  ///
+  /// Example:
+  /// ```dart
+  /// print(colorToString(Colors.blue));       // "blue"
+  /// print(colorToString(Color(0xFF123456))); // "ff123456"
+  /// ```
+  String colorToString(Color color) {
+    // Map of commonly used Material Colors to their string names.
+    Map<Color, String> colorNames = {
+      Colors.black: "black",
+      Colors.white: "white",
+      Colors.red: "red",
+      Colors.green: "green",
+      Colors.blue: "blue",
+      Colors.yellow: "yellow",
+      Colors.orange: "orange",
+      Colors.purple: "purple",
+      Colors.grey: "grey",
+      Colors.pink: "pink",
+      Colors.teal: "teal",
+      Colors.cyan: "cyan",
+      Colors.lime: "lime",
+      Colors.indigo: "indigo",
+      Colors.brown: "brown",
+      Colors.amber: "amber",
+      Colors.lightBlue: "lightBlue",
+      Colors.lightGreen: "lightGreen",
+      Colors.deepOrange: "deepOrange",
+      Colors.deepPurple: "deepPurple",
+      Colors.blueGrey: "blueGrey",
+    };
+
+    return colorNames[color] ?? "black";
   }
 
   /// Builds the ArCaptcha HTML content.
@@ -71,7 +135,7 @@ class ArCaptchaController {
         <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <script src="https://widget.arcaptcha.ir/1/api.js?domain=$domainUrl" async defer></script>
+          <script src="https://widget.arcaptcha.ir/1/api.js?domain=$domain" async defer></script>
           <style>
           
           * {
@@ -85,7 +149,7 @@ class ArCaptchaController {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
             transition: background 0.3s ease;
             overflow: hidden;
-            background: ${themeMode == ThemeMode.light ? '#ffffff' : '#333333'};
+            background: ${theme == ThemeMode.light ? '#ffffff' : '#333333'};
           }     
           
           .arcaptcha {
@@ -97,7 +161,7 @@ class ArCaptchaController {
             border-radius: 16px;
             max-width: 420px;
             width: 100%;
-            background: ${themeMode == ThemeMode.light ? '#ffffff' : '#333333'};
+            background: ${theme == ThemeMode.light ? '#ffffff' : '#333333'};
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           }
       
@@ -120,7 +184,7 @@ class ArCaptchaController {
             bottom: 4px;
             border-radius: 50%;
             border: 4px solid transparent;
-            border-top: 4px solid ${themeMode == ThemeMode.light ? '#ffffff' : '#333333'};
+            border-top: 4px solid ${theme == ThemeMode.light ? '#ffffff' : '#333333'};
             animation: spin 1.2s linear infinite reverse;
           }
 
@@ -159,7 +223,10 @@ class ArCaptchaController {
           <div class="arcaptcha"
                data-site-key="$siteKey"
                data-lang="$lang"
-               data-theme="${themeMode == ThemeMode.light ? 'light' : 'dark'}"
+               data-color="${colorToString(color)}"
+               data-error-print="${errorPrint.toString()}"
+               data-theme="${theme == ThemeMode.light ? 'light' : 'dark'}"
+               data-size="${dataSize.name}"
                data-callback="onVerified"
                data-error-callback="onError">
           </div>
@@ -192,14 +259,34 @@ class ArCaptchaController {
             
               <!-- Show loader for captcha -->
               const checkInterval = setInterval(() => {
-                  if (typeof arcaptcha !== 'undefined' && typeof arcaptcha.execute === 'function') {
-                    clearInterval(checkInterval);
-                    const loader = document.getElementById('loader');
-                    if (loader) {
-                      loader.style.display = 'none';
-                    }
+                if (typeof arcaptcha !== 'undefined' && typeof arcaptcha.execute === 'function') {
+                  clearInterval(checkInterval);
+                  const loader = document.getElementById('loader');
+                  if (loader) {
+                    loader.style.display = 'none';
                   }
-                }, 150);
+                }
+              }, 150);
+
+              <!-- Automatically check the checkbox if enabled -->
+              window.onload = function() {
+                if(${dataSize == DataSize.invisible}) {
+                  const checkInterval = setInterval(() => {
+                    if (typeof arcaptcha !== 'undefined' && typeof arcaptcha.execute === 'function') {
+                      arcaptcha.execute();
+                      clearInterval(checkInterval);
+                      post("execute-called");
+                      
+                      <!-- Remove loader display -->
+                      const loader = document.getElementById('loader');
+                      if (loader) {
+                        loader.style.display = 'none';
+                      }
+                    }
+                  }, 150);
+                }
+              };
+
 
           </script>
         </body>

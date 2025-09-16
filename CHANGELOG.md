@@ -10,8 +10,16 @@
 - Web and mobile platform support with unified API.
 
 # 1.0.1
-- Fix some bug
+- Fix reported bug
 
 # 1.0.2
 - Add supported platform
 - Added support for dark theme
+
+# 1.0.3
+- Fixed Navigator pop issues in web dialogs to prevent _debugLocked errors.
+- Added conditional execution of the captcha script based on DataSize (normal vs invisible).
+- Improved color handling with extended list of supported Material colors in colorToString().
+- Updated documentation for ArCaptchaController properties and HTML data-* attributes.
+- Minor bug fixes and performance improvements for WebView and InAppWebView integration.
+- Fix reported bug

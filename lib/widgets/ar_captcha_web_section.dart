@@ -1,25 +1,30 @@
 import 'dart:async';
+
 import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import '/../controller/ar_captcha_controller.dart';
 import '/../res/common/js_interop_helper.dart';
+import '/../controller/ar_captcha_controller.dart';
 
-/// Web implementation of the captcha dialog.
+/// A platform-agnostic holder for rendering the captcha widget.
 ///
-/// Uses [InAppWebView] to render the captcha and listens to
-/// browser `postMessage` events for success/error callbacks.
-class ArCaptchaWebDialog extends StatefulWidget {
+/// Depending on the platform (web or mobile), the exported implementation
+/// will switch between:
+/// - [ArCaptchaMobileDialog] (mobile)
+/// - [ArCaptchaWebDialog] (web)
+/// - a fallback [Container] (stub, should never be used).
+
+class ArCaptchaSectionHolder extends StatefulWidget {
   final String htmlWidget;
 
-  const ArCaptchaWebDialog({super.key, required this.htmlWidget});
+  const ArCaptchaSectionHolder({super.key, required this.htmlWidget});
 
   @override
-  State<ArCaptchaWebDialog> createState() => _ArCaptchaWebDialogState();
+  State<ArCaptchaSectionHolder> createState() => _ArCaptchaSectionHolderState();
 }
 
-class _ArCaptchaWebDialogState extends State<ArCaptchaWebDialog> {
+class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
   /// Subscription for listening to JS `window.postMessage` events.
   StreamSubscription<web.MessageEvent>? _messageSubscription;
 
@@ -69,16 +74,15 @@ class _ArCaptchaWebDialogState extends State<ArCaptchaWebDialog> {
         useShouldOverrideUrlLoading: false,
         mediaPlaybackRequiresUserGesture: false,
       ),
-
       onWebViewCreated: (InAppWebViewController controller) async {
         ArCaptchaController.inAppController = controller;
-
-        setState(() {});
       },
-      onConsoleMessage:
-          (InAppWebViewController controller, ConsoleMessage consoleMessage) {
-            debugPrint(consoleMessage.message);
-          },
+      onConsoleMessage: (
+        InAppWebViewController controller,
+        ConsoleMessage consoleMessage,
+      ) {
+        debugPrint(consoleMessage.message);
+      },
     );
   }
 }

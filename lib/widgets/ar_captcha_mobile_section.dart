@@ -1,22 +1,28 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../controller/ar_captcha_controller.dart';
+import '/../controller/ar_captcha_controller.dart';
 
-/// Mobile implementation of the captcha dialog.
+/// A platform-agnostic holder for rendering the captcha widget.
 ///
-/// Uses [WebViewController] from `webview_flutter` to render the captcha widget.
-class ArCaptchaMobileDialog extends StatefulWidget {
+/// Depending on the platform (web or mobile), the exported implementation
+/// will switch between:
+/// - [ArCaptchaMobileDialog] (mobile)
+/// - [ArCaptchaWebDialog] (web)
+/// - a fallback [Container] (stub, should never be used).
+
+class ArCaptchaSectionHolder extends StatefulWidget {
   final String htmlWidget;
 
-  const ArCaptchaMobileDialog({super.key, required this.htmlWidget});
+  const ArCaptchaSectionHolder({super.key, required this.htmlWidget});
 
   @override
-  State<ArCaptchaMobileDialog> createState() => _ArCaptchaMobileDialogState();
+  State<ArCaptchaSectionHolder> createState() => _ArCaptchaSectionHolderState();
 }
 
-class _ArCaptchaMobileDialogState extends State<ArCaptchaMobileDialog> {
+class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
   @override
   void initState() {
     super.initState();

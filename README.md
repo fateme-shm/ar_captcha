@@ -40,7 +40,7 @@ Add this to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  ar_captcha: ^1.0.2
+  ar_captcha: ^1.0.3
 ```
 
 Then run:
@@ -90,14 +90,18 @@ class MyCaptchaScreen extends StatelessWidget {
 
 ## API Reference
 
-| Parameter            | Type          | Description                                   | Default                            |
-|----------------------|---------------|-----------------------------------------------|------------------------------------|
-| `mode`               | `CaptchaType` | Show captcha in **dialog, screen, or modal**. | `CaptchaType.dialog`               |
-| `siteKey`            | `String`      | Your ArCaptcha **site key** (required).       | –                                  |
-| `lang`               | `String`      | Language code for captcha.                    | `en`                               |
-| `domainUrl`          | `String`      | Domain name of the app.                       | `localhost`                        |
-| `themeMode`          | `ThemeMode`   | Theme mode (light/dark).                      | `light`                            |
-| `captchaHeight`      | `double`      | Height of the captcha widget container.       | `550`                              |
-| `onErrorMessage`     | `String`      | Default error message if captcha fails.       | `Something went wrong, try again!` |
-| `enableModalDrag`    | `bool`        | Controls whether the modal can be dragged.    | `true`                             |
-| `isModalDismissible` | `bool`        | Controls whether the modal can be dismissed.  | `true`                             |
+| Parameter / Attribute             | Type               | Description                                                                                           | Default / Required                 |
+|-----------------------------------|--------------------|-------------------------------------------------------------------------------------------------------|------------------------------------|
+| `siteKey` / `data-site-key`       | `String`           | Your ArCaptcha **public API site key**. Required to load the captcha.                                 | Required                           |
+| `dataSize` / `data-size`          | `DataSize`         | Controls checkbox display mode: `normal` (visible) or `invisible` (hidden, executes automatically).   | `DataSize.normal`                  |
+| `theme` / `data-theme`            | `ThemeMode`        | Theme of the widget: `light` or `dark`.                                                               | `ThemeMode.light`                  |
+| `color` / `data-color`            | `Color`            | Sets color of all colored elements in the widget (checkbox, loader). Can be a color name or hex code. | `Colors.black`                     |
+| `errorPrint` / `data-error-print` | `int`              | Controls error messages below checkbox: `0` → enabled, `1` → disabled.                                | `0`                                |
+| `lang` / `data-lang`              | `String`           | Language of the widget: e.g., `en` or `fa`.                                                           | `'en'`                             |
+| `onSuccess` / `data-callback`     | `Function(String)` | Called when captcha is solved successfully. The **token** is passed to this callback.                 | Optional                           |
+| `onError` / `data-error-callback` | `Function(String)` | Called when captcha fails or encounters an error.                                                     | Optional                           |
+| `captchaHeight`                   | `double`           | Height of the captcha container in Flutter.                                                           | `550`                              |
+| `domain` / `data-domain`          | `String`           | Domain name of the app. Used to load the captcha script correctly.                                    | `'localhost'`                      |
+| `enableModalDrag`                 | `bool`             | Controls whether modal bottom sheet can be dragged.                                                   | `true`                             |
+| `isModalDismissible`              | `bool`             | Controls whether modal bottom sheet can be dismissed by tapping outside.                              | `true`                             |
+| `onErrorMessage`                  | `String`           | Default error message if captcha fails.                                                               | `Something went wrong, try again!` |
