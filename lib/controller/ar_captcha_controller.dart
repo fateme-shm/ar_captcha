@@ -118,10 +118,11 @@ class ArCaptchaController {
           body { 
             margin: 0; 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
-            transition: background 0.3s ease;
-            overflow: hidden;
-            background: ${theme == ThemeMode.light ? '#ffffff' : '#333333'};
           }     
+          
+          #arcaptcha_full_body_container{
+            background-color: "";
+          }
           
           .arcaptcha {
             justify-content: center; 
@@ -130,65 +131,64 @@ class ArCaptchaController {
             display: flex; 
             padding: 24px;
             border-radius: 16px;
-            max-width: 420px;
             width: 100%;
-            background: ${theme == ThemeMode.light ? '#ffffff' : '#333333'};
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           }
       
-         .loader {
-            width: 48px;
-            height: 48px;
-            border: 4px solid transparent;
-            border-top: 4px solid #0E53D9;
+          .loader {
+            font-size: 10px;
+            width: 1em;
+            height: 1em;
             border-radius: 50%;
-            animation: spin 0.8s linear infinite;
             position: relative;
-          }
-      
-          .loader::after {
-            content: '';
-            position: absolute;
-            top: 4px;
-            left: 4px;
-            right: 4px;
-            bottom: 4px;
-            border-radius: 50%;
-            border: 4px solid transparent;
-            border-top: 4px solid ${theme == ThemeMode.light ? '#ffffff' : '#333333'};
-            animation: spin 1.2s linear infinite reverse;
+            text-indent: -9999em;
+            animation: mulShdSpin 1.1s infinite ease;
+            transform: translateZ(0);
+            background: background: ${dataSize == DataSize.invisible ? 'transparent' : theme == ThemeMode.light ? '#ffffff' : '#333333'}; !important;
           }
 
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-      
-          /* Fullscreen loader container */
-          #loader {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            backdrop-filter: blur(2px);
-            transition: opacity 0.3s ease;
-          }
-      
-          /* Fade out loader */
-          #loader.fade-out {
-            opacity: 0;
-            pointer-events: none;
-          }
+          @keyframes mulShdSpin {
+            0%, 100% {
+              box-shadow: 0em -2.6em 0em 0em #000, 1.8em -1.8em 0 0em rgba(0,0,0,0.2), 2.5em 0em 0 0em rgba(0,0,0,0.2), 1.75em 1.75em 0 0em rgba(0,0,0,0.2), 0em 2.5em 0 0em rgba(0,0,0,0.2), -1.8em 1.8em 0 0em rgba(0,0,0,0.2), -2.6em 0em 0 0em rgba(0,0,0,0.5), -1.8em -1.8em 0 0em rgba(0,0,0,0.7);
+            }
+            12.5% {
+              box-shadow: 0em -2.6em 0em 0em rgba(0,0,0,0.7), 1.8em -1.8em 0 0em #000, 2.5em 0em 0 0em rgba(0,0,0,0.2), 1.75em 1.75em 0 0em rgba(0,0,0,0.2), 0em 2.5em 0 0em rgba(0,0,0,0.2), -1.8em 1.8em 0 0em rgba(0,0,0,0.2), -2.6em 0em 0 0em rgba(0,0,0,0.2), -1.8em -1.8em 0 0em rgba(0,0,0,0.5);
+            }
+            25% {
+              box-shadow: 0em -2.6em 0em 0em rgba(0,0,0,0.5), 1.8em -1.8em 0 0em rgba(0,0,0,0.7), 2.5em 0em 0 0em #000, 1.75em 1.75em 0 0em rgba(0,0,0,0.2), 0em 2.5em 0 0em rgba(0,0,0,0.2), -1.8em 1.8em 0 0em rgba(0,0,0,0.2), -2.6em 0em 0 0em rgba(0,0,0,0.2), -1.8em -1.8em 0 0em rgba(0,0,0,0.2);
+            }
+            37.5% {
+              box-shadow: 0em -2.6em 0em 0em rgba(0,0,0,0.2), 1.8em -1.8em 0 0em rgba(0,0,0,0.5), 2.5em 0em 0 0em rgba(0,0,0,0.7), 1.75em 1.75em 0 0em #000, 0em 2.5em 0 0em rgba(0,0,0,0.2), -1.8em 1.8em 0 0em rgba(0,0,0,0.2), -2.6em 0em 0 0em rgba(0,0,0,0.2), -1.8em -1.8em 0 0em rgba(0,0,0,0.2);
+            }
+            50% {
+              box-shadow: 0em -2.6em 0em 0em rgba(0,0,0,0.2), 1.8em -1.8em 0 0em rgba(0,0,0,0.2), 2.5em 0em 0 0em rgba(0,0,0,0.5), 1.75em 1.75em 0 0em rgba(0,0,0,0.7), 0em 2.5em 0 0em #000, -1.8em 1.8em 0 0em rgba(0,0,0,0.2), -2.6em 0em 0 0em rgba(0,0,0,0.2), -1.8em -1.8em 0 0em rgba(0,0,0,0.2);
+            }
+            62.5% {
+              box-shadow: 0em -2.6em 0em 0em rgba(0,0,0,0.2), 1.8em -1.8em 0 0em rgba(0,0,0,0.2), 2.5em 0em 0 0em rgba(0,0,0,0.2), 1.75em 1.75em 0 0em rgba(0,0,0,0.5), 0em 2.5em 0 0em rgba(0,0,0,0.7), -1.8em 1.8em 0 0em #000, -2.6em 0em 0 0em rgba(0,0,0,0.2), -1.8em -1.8em 0 0em rgba(0,0,0,0.2);
+            }
+            75% {
+              box-shadow: 0em -2.6em 0em 0em rgba(0,0,0,0.2), 1.8em -1.8em 0 0em rgba(0,0,0,0.2), 2.5em 0em 0 0em rgba(0,0,0,0.2), 1.75em 1.75em 0 0em rgba(0,0,0,0.2), 0em 2.5em 0 0em rgba(0,0,0,0.5), -1.8em 1.8em 0 0em rgba(0,0,0,0.7), -2.6em 0em 0 0em #000, -1.8em -1.8em 0 0em rgba(0,0,0,0.2);
+            }
+            87.5% {
+              box-shadow: 0em -2.6em 0em 0em rgba(0,0,0,0.2), 1.8em -1.8em 0 0em rgba(0,0,0,0.2), 2.5em 0em 0 0em rgba(0,0,0,0.2), 1.75em 1.75em 0 0em rgba(0,0,0,0.2), 0em 2.5em 0 0em rgba(0,0,0,0.2), -1.8em 1.8em 0 0em rgba(0,0,0,0.5), -2.6em 0em 0 0em rgba(0,0,0,0.7), -1.8em -1.8em 0 0em #000;
+            }
+          }      
+        
         </style>
         </head>
-        <body>
-          <!-- Loader -->
-          <div id="loader">
-              <span class="loader"></span>
-          </div>
+        <body style="background: ${dataSize == DataSize.invisible ? 'transparent' : theme == ThemeMode.light ? '#ffffff' : '#333333'}; margin: 0; padding: 0;">
+          <div id="loader" style="
+          position: fixed;
+          top: 0; left: 0;
+          width: 100%; height: 100%;
+          background: background: ${dataSize == DataSize.invisible ? 'transparent' : theme == ThemeMode.light ? '#ffffff' : '#333333'};;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 9999;
+        ">
+          <span class="loader"></span>
+        </div>
             
           <!-- ArCaptcha widget -->
           <div class="arcaptcha"
@@ -301,6 +301,7 @@ class ArCaptchaController {
     return await showDialog<String?>(
       context: context,
       builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
         child: SizedBox(
           height: captchaHeight,
           child: ClipRRect(

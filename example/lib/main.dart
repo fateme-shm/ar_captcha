@@ -34,6 +34,7 @@ class _MyHomePageState extends State<MyHomePage> {
     lang: 'en',
     siteKey: 'YOUR_SITE_KEY',
     domain: 'https://example.com',
+    dataSize: DataSize.invisible,
   );
 
   @override

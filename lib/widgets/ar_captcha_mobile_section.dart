@@ -37,6 +37,7 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
   void _initJsFunction() {
     ArCaptchaController.webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.transparent)
       ..addJavaScriptChannel(
         'Captcha',
         onMessageReceived: (message) {

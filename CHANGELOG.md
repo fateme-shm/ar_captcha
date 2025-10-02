@@ -27,3 +27,7 @@
 # 1.0.4
 - Change color convertor to get all color data
 
+# 1.0.5
+- Remove background color in invisible mode
+- Fix some reported bug
+

@@ -73,6 +73,7 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
       initialSettings: InAppWebViewSettings(
         useShouldOverrideUrlLoading: false,
         mediaPlaybackRequiresUserGesture: false,
+        underPageBackgroundColor: Colors.transparent,
       ),
       onWebViewCreated: (InAppWebViewController controller) async {
         ArCaptchaController.inAppController = controller;
