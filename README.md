@@ -6,7 +6,7 @@ customization options.
 
 ARCaptcha is a privacy-friendly CAPTCHA solution designed to verify real users without intrusive
 challenges, providing a secure and user-friendly way to prevent bots and automated abuse.
-
+Ar Captcha pub.dev Package: https://pub.dev/packages/ar_captcha/
 Official ARCaptcha service: https://arcaptcha.co/en/
 ---
 
