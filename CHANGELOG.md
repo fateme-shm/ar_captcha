@@ -31,3 +31,7 @@
 - Remove background color in invisible mode
 - Fix some reported bug
 
+# 1.0.6
+- Change loader color in dark mode
+- Fix some reported bug
+
