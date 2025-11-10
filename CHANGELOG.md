@@ -35,3 +35,6 @@
 - Change loader color in dark mode
 - Fix some reported bug
 
+# 1.0.7
+- Fix loader color in dark mode
+

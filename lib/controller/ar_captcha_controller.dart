@@ -117,9 +117,9 @@ class ArCaptchaController {
           
           :root {
             --loader-color: ${theme == ThemeMode.light ? '#ffffff' : '#000000'};
-            --loader-shadow-1: rgba(0, 0, 0, 0.2);
-            --loader-shadow-2: rgba(0, 0, 0, 0.5);
-            --loader-shadow-3: rgba(0, 0, 0, 0.7);
+            --loader-shadow-1: rgba(${theme == ThemeMode.light ? '0' : '255'}, ${theme == ThemeMode.light ? '0' : '255'}, ${theme == ThemeMode.light ? '0' : '255'}, 0.2);
+            --loader-shadow-2: rgba(${theme == ThemeMode.light ? '0' : '255'}, ${theme == ThemeMode.light ? '0' : '255'}, ${theme == ThemeMode.light ? '0' : '255'}, 0.5);
+            --loader-shadow-3: rgba(${theme == ThemeMode.light ? '0' : '255'}, ${theme == ThemeMode.light ? '0' : '255'}, ${theme == ThemeMode.light ? '0' : '255'}, 0.7);
           }
           
           body { 
