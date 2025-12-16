@@ -19,8 +19,8 @@ Official ARCaptcha service: https://arcaptcha.co/en/
 ![ArCaptcha Demo]
 </br>
 </br>
-<img src="https://raw.githubusercontent.com/fateme-shm/ar_captcha/main/demo.png" width="300" alt="ArCaptcha Demo" />
-<img src="https://raw.githubusercontent.com/fateme-shm/ar_captcha/main/demo_1.png" width="300" alt="ArCaptcha Demo" />
+<img src="https://raw.githubusercontent.com/fateme-shm/ar_captcha/main/screen_shot_light.png" width="300" alt="ArCaptcha Light" />
+<img src="https://raw.githubusercontent.com/fateme-shm/ar_captcha/main/screen_shot_dark.png" width="300" alt="ArCaptcha Dark" />
 
 ## Features
 
@@ -40,7 +40,7 @@ Add this to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  ar_captcha: ^1.0.7
+  ar_captcha: ^1.0.8
 ```
 
 Then run:
@@ -58,6 +58,7 @@ import 'package:ar_captcha/ar_captcha.dart';
 class MyCaptchaScreen extends StatelessWidget {
   final ArCaptchaController _controller = ArCaptchaController(
     lang: 'en',
+    theme: ThemeMode.light,
     siteKey: 'YOUR_SITE_KEY',
   );
 

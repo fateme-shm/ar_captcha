@@ -38,3 +38,6 @@
 # 1.0.7
 - Fix loader color in dark mode
 
+# 1.0.8
+- Add platform support for macOs, windows, linux
+- Add new screen shot of UI package
