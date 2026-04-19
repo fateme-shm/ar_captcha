@@ -39,5 +39,11 @@
 - Fix loader color in dark mode
 
 # 1.0.8
-- Add platform support for macOs, windows, linux
-- Add new screen shot of UI package
+- Add platform support for macOS, windows, linux
+- Add new screenshot of UI package
+
+# 1.0.9
+- Remove InAppWebView library because of internet problem in some country
+- Use HtmlElementView instead of InAppWebView
+- Add `captchaWidth` in dialog mode of captcha
+- Fix reported issue

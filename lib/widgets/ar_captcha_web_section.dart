@@ -1,11 +1,9 @@
 import 'dart:async';
-
+import 'dart:js_interop';
+import 'dart:ui_web' as ui;
 import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-
 import '/../res/common/js_interop_helper.dart';
-import '/../controller/ar_captcha_controller.dart';
 
 /// A platform-agnostic holder for rendering the captcha widget.
 ///
@@ -68,22 +66,18 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
 
   @override
   Widget build(BuildContext context) {
-    return InAppWebView(
-      initialData: InAppWebViewInitialData(data: widget.htmlWidget),
-      initialSettings: InAppWebViewSettings(
-        useShouldOverrideUrlLoading: false,
-        mediaPlaybackRequiresUserGesture: false,
-        underPageBackgroundColor: Colors.transparent,
-      ),
-      onWebViewCreated: (InAppWebViewController controller) async {
-        ArCaptchaController.inAppController = controller;
-      },
-      onConsoleMessage: (
-        InAppWebViewController controller,
-        ConsoleMessage consoleMessage,
-      ) {
-        debugPrint(consoleMessage.message);
-      },
-    );
+    final viewId = 'captcha-${DateTime.now().millisecondsSinceEpoch}';
+
+    ui.platformViewRegistry.registerViewFactory(viewId, (int id) {
+      final iframe = web.HTMLIFrameElement()
+        ..srcdoc = widget.htmlWidget.toJS
+        ..style.border = 'none'
+        ..style.width = '100%'
+        ..style.height = '100%';
+
+      return iframe;
+    });
+
+    return HtmlElementView(viewType: viewId);
   }
 }

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '/../res/enums/data_size.dart';
 import '/../res/enums/captcha_type.dart';
@@ -9,10 +8,15 @@ import '/../widgets/custom_modal_bottom_sheet.dart';
 import '/../widgets/loader/ar_captcha_platform.dart';
 
 /// Controller for displaying and managing ArCaptcha widgets
-/// across different UI modes (dialog, screen, or modal bottom sheet).
+/// across different UI modes ([CaptchaType.dialog],
+/// [CaptchaType.screen], or [CaptchaType.modalBottomSheet]).
+///
 class ArCaptchaController {
   /// The height of the captcha widget container.
   final double captchaHeight;
+
+  /// The width of the captcha when modes is [CaptchaType.dialog]
+  final double captchaWidth;
 
   /// Your ArCaptcha **site key** (required).
   final String siteKey;
@@ -60,9 +64,6 @@ class ArCaptchaController {
   /// Controller used for `webview_flutter` (mobile).
   static WebViewController? webViewController;
 
-  /// Controller used for `flutter_inappwebview` (web).
-  static InAppWebViewController? inAppController;
-
   /// Constructor initializes required fields
   /// and builds the HTML section.
   ArCaptchaController({
@@ -71,6 +72,7 @@ class ArCaptchaController {
     this.domain = 'localhost',
     this.onErrorMessage = 'Something went wrong, try again!',
     this.errorPrint = 0,
+    this.captchaWidth = 550,
     this.captchaHeight = 550,
     this.color = Colors.black,
     this.theme = ThemeMode.light,
@@ -106,7 +108,7 @@ class ArCaptchaController {
         <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <script src="https://widget.arcaptcha.ir/1/api.js?domain=$domain" async defer></script>
+          <script src="https://widget.arcaptcha.ir/1/api.js?domain=$domain" async></script>
           <style>
           
           * {
@@ -274,11 +276,11 @@ class ArCaptchaController {
           </div>
           
           <script>
-              <!-- Posts data back to Flutter (Android/iOS) or WebView (Web). -->  
+              // Posts data back to Flutter (Android/iOS) or WebView (Web). 
               function post(type, payload = null) {     
                 console.log("Posting to Flutter:", { type, payload }); 
 
-                <!-- Callback for Web platforms -->  
+                // Callback for Web platforms
                 if (window.self !== window.top) {
                     window.parent.postMessage({ type: type, payload: payload }, '*');
                     console.log("Sent to parent.");
@@ -287,19 +289,19 @@ class ArCaptchaController {
                     console.log("Sent to self (you probably don't want this).");
                 } 
                                 
-                <!-- Callback for Android/IOS platforms -->   
+                // Callback for Android/IOS platforms
                 if(window.Captcha) {   
                   window.Captcha.postMessage(JSON.stringify({ type, payload }));
                 }
               }
             
-              <!-- Success callback -->
+              // Success callback
               function onVerified(token){ post("success", token); }
                             
-              <!-- Error callback -->
+              // Error callback
               function onError(error){ post("error", error); }
             
-              <!-- Show loader for captcha -->
+              // Show loader for captcha
               const checkInterval = setInterval(() => {
                 if (typeof arcaptcha !== 'undefined' && typeof arcaptcha.execute === 'function') {
                   clearInterval(checkInterval);
@@ -310,7 +312,7 @@ class ArCaptchaController {
                 }
               }, 150);
 
-              <!-- Automatically check the checkbox if enabled -->
+              // Automatically check the checkbox if enabled
               window.onload = function() {
                 if(${dataSize == DataSize.invisible}) {
                   const checkInterval = setInterval(() => {
@@ -319,7 +321,7 @@ class ArCaptchaController {
                       clearInterval(checkInterval);
                       post("execute-called");
                       
-                      <!-- Remove loader display -->
+                      // Remove loader display
                       const loader = document.getElementById('loader');
                       if (loader) {
                         loader.style.display = 'none';
@@ -375,6 +377,7 @@ class ArCaptchaController {
         backgroundColor: Colors.transparent,
         child: SizedBox(
           height: captchaHeight,
+          width: captchaWidth,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: ArCaptchaSectionHolder(htmlWidget: _htmlContent),
