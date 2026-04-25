@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:js_interop';
 import 'dart:ui_web' as ui;
 import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
@@ -22,17 +23,12 @@ class ArCaptchaSectionHolder extends StatefulWidget {
 }
 
 class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
-  late final String viewId;
   /// Subscription for listening to JS `window.postMessage` events.
   StreamSubscription<web.MessageEvent>? _messageSubscription;
 
   @override
   void initState() {
     super.initState();
-
-    viewId = 'captcha-${DateTime.now().millisecondsSinceEpoch}';
-    CaptchaViewRegistry.register(viewId, widget.htmlWidget);
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleCallBack();
     });
@@ -70,32 +66,18 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
 
   @override
   Widget build(BuildContext context) {
-    return HtmlElementView(viewType: viewId);
-  }
-}
-
-class CaptchaViewRegistry {
-  static final Set<String> _registered = {};
-
-  static void register(String viewId, String html) {
-    if (_registered.contains(viewId)) return;
-    _registered.add(viewId);
+    final viewId = 'captcha-${DateTime.now().millisecondsSinceEpoch}';
 
     ui.platformViewRegistry.registerViewFactory(viewId, (int id) {
       final iframe = web.HTMLIFrameElement()
-        ..src = Uri.dataFromString(
-          html,
-          mimeType: 'text/html',
-        ).toString()
+        ..srcdoc = widget.htmlWidget.toJS
         ..style.border = 'none'
         ..style.width = '100%'
-        ..style.height = '100%'
-        ..setAttribute(
-          'sandbox',
-          'allow-scripts allow-same-origin allow-forms allow-popups',
-        );
+        ..style.height = '100%';
 
       return iframe;
     });
+
+    return HtmlElementView(viewType: viewId);
   }
 }
