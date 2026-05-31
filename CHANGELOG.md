@@ -49,7 +49,7 @@
 - Fix reported issue
 
 
-# 1.1.1
+# 1.1.0
 - Added `Responsive Dialog` mode
   - Automatically switches between modal bottom sheet (mobile) and dialog (desktop/tablet)
 - Improved adaptive UI behavior across platforms

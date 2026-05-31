@@ -41,7 +41,7 @@ Add this to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  ar_captcha: ^1.0.9
+  ar_captcha: ^last_version
 ```
 
 Then run:
