@@ -47,3 +47,9 @@
 - Use HtmlElementView instead of InAppWebView
 - Add `captchaWidth` in dialog mode of captcha
 - Fix reported issue
+
+
+# 1.1.1
+- Added `Responsive Dialog` mode
+  - Automatically switches between modal bottom sheet (mobile) and dialog (desktop/tablet)
+- Improved adaptive UI behavior across platforms

@@ -24,13 +24,14 @@ Official ARCaptcha service: https://arcaptcha.co/en/
 
 ## Features
 
-- ✅ Show captcha in **dialog, screen, or modal bottom sheet**
-- ✅ Built-in **loader animation** while captcha loads
-- ✅ Works on **Android, iOS, and Web**
-- ✅ **Customizable height** for captcha container
-- ✅ Supports **dark and light theme** modes
-- ✅ Easy **success/error callbacks**
-- ✅ Secure HTML + JS integration with Flutter bridges
+- ✅ Show captcha in *Dialog*, *Screen*, *Modal Bottom Sheet*, or *Responsive Dialog*
+- Built-in *loading* animation
+- Fully *theme-aware* (light/dark)
+- Customizable *size*, *color*, and *behavior*
+- Supports *invisible* and *normal* modes
+- Clean *success/error* callback system
+- Secure *HTML + JS bridge* with Flutter *WebView*
+- Responsive UI for *desktop/tablet/mobile*
 
 ---
 
@@ -89,20 +90,42 @@ class MyCaptchaScreen extends StatelessWidget {
 
 ```
 
+## Captcha Display Modes
+- CaptchaType.dialog
+- CaptchaType.screen
+- CaptchaType.modalBottomSheet
+- CaptchaType.responsiveDialog
+
+## Behavior Notes
+- Dialog Mode
+  - Fixed width & height
+  - Good for desktop/tablet UX
+
+- Screen Mode 
+  - Full page captcha experience
+  
+- Modal Bottom Sheet
+  - Mobile-friendly UX
+  - Uses custom bottom sheet wrapper
+
+- Responsive Dialog (NEW)
+  - Automatically adapts to screen size
+  - Uses maxResponsiveDialogWidth
+  - Best default for mixed platforms
+
 ## API Reference
 
-| Parameter / Attribute             | Type               | Description                                                                                           | Default / Required                 |
-|-----------------------------------|--------------------|-------------------------------------------------------------------------------------------------------|------------------------------------|
-| `siteKey` / `data-site-key`       | `String`           | Your ArCaptcha **public API site key**. Required to load the captcha.                                 | Required                           |
-| `dataSize` / `data-size`          | `DataSize`         | Controls checkbox display mode: `normal` (visible) or `invisible` (hidden, executes automatically).   | `DataSize.normal`                  |
-| `theme` / `data-theme`            | `ThemeMode`        | Theme of the widget: `light` or `dark`.                                                               | `ThemeMode.light`                  |
-| `color` / `data-color`            | `Color`            | Sets color of all colored elements in the widget (checkbox, loader). Can be a color name or hex code. | `Colors.black`                     |
-| `errorPrint` / `data-error-print` | `int`              | Controls error messages below checkbox: `0` → enabled, `1` → disabled.                                | `0`                                |
-| `lang` / `data-lang`              | `String`           | Language of the widget: e.g., `en` or `fa`.                                                           | `'en'`                             |
-| `onSuccess` / `data-callback`     | `Function(String)` | Called when captcha is solved successfully. The **token** is passed to this callback.                 | Optional                           |
-| `onError` / `data-error-callback` | `Function(String)` | Called when captcha fails or encounters an error.                                                     | Optional                           |
-| `captchaHeight`                   | `double`           | Height of the captcha container in Flutter.                                                           | `550`                              |
-| `domain` / `data-domain`          | `String`           | Domain name of the app. Used to load the captcha script correctly.                                    | `'localhost'`                      |
-| `enableModalDrag`                 | `bool`             | Controls whether modal bottom sheet can be dragged.                                                   | `true`                             |
-| `isModalDismissible`              | `bool`             | Controls whether modal bottom sheet can be dismissed by tapping outside.                              | `true`                             |
-| `onErrorMessage`                  | `String`           | Default error message if captcha fails.                                                               | `Something went wrong, try again!` |
+| Parameter                  | Type        | Description                             | Default         |
+| -------------------------- | ----------- | --------------------------------------- | --------------- |
+| `siteKey`                  | `String`    | Your ARCaptcha public site key          | Required        |
+| `lang`                     | `String`    | Language code (`en`, `fa`)              | `en`            |
+| `domain`                   | `String`    | App domain used by captcha service      | `localhost`     |
+| `theme`                    | `ThemeMode` | Light or dark theme                     | `light`         |
+| `color`                    | `Color`     | Primary UI color                        | `Colors.black`  |
+| `dataSize`                 | `DataSize`  | `normal` or `invisible` mode            | `normal`        |
+| `errorPrint`               | `int`       | Show error messages (0/1)               | `0`             |
+| `captchaHeight`            | `double`    | Height of captcha container             | `550`           |
+| `captchaWidth`             | `double`    | Width (dialog mode only)                | `550`           |
+| `onErrorMessage`           | `String`    | Default error message                   | fallback string |
+| `dialogBarrierDismissible` | `bool`      | Allow closing dialog by tapping outside | `true`          |
+| `maxResponsiveDialogWidth` | `double`    | Max width for responsive dialog         | `600`           |

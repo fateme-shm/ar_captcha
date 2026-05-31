@@ -8,4 +8,7 @@ enum CaptchaType {
 
   /// Displays captcha inside a **modal bottom sheet**.
   modalBottomSheet,
+
+  /// Displays captcha inside a **responsive dialog**.
+  responsiveDialog,
 }

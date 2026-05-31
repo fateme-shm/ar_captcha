@@ -4,12 +4,14 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '/../res/enums/data_size.dart';
 import '/../res/enums/captcha_type.dart';
+import '../widgets/responsive_dialog.dart';
+import '../res/model/show_dialog_parameters.dart';
 import '/../widgets/custom_modal_bottom_sheet.dart';
 import '/../widgets/loader/ar_captcha_platform.dart';
 
 /// Controller for displaying and managing ArCaptcha widgets
 /// across different UI modes ([CaptchaType.dialog],
-/// [CaptchaType.screen], or [CaptchaType.modalBottomSheet]).
+/// [CaptchaType.screen], [CaptchaType.modalBottomSheet], or [CaptchaType.responsiveDialog]).
 ///
 class ArCaptchaController {
   /// The height of the captcha widget container.
@@ -64,6 +66,14 @@ class ArCaptchaController {
   /// Controller used for `webview_flutter` (mobile).
   static WebViewController? webViewController;
 
+  /// The maximum width of the responsive dialog.
+  /// Defaults to `600` if not set.
+  /// This is used to limit the width of the responsive dialog.
+  final double maxResponsiveDialogWidth;
+
+  /// Dialog parameters
+  final bool dialogBarrierDismissible;
+
   /// Constructor initializes required fields
   /// and builds the HTML section.
   ArCaptchaController({
@@ -77,8 +87,15 @@ class ArCaptchaController {
     this.color = Colors.black,
     this.theme = ThemeMode.light,
     this.dataSize = DataSize.normal,
+    this.dialogBarrierDismissible = true,
+    this.maxResponsiveDialogWidth = 600,
   }) {
     _htmlContent = _buildHtmlSection();
+  }
+
+  /// Get the maximum width of the responsive dialog.
+  static double get getMaxResponsiveDialogWidth {
+    return ArCaptchaController(siteKey: '').maxResponsiveDialogWidth;
   }
 
   /// Converts a [Color] object to a CSS-compatible hex color string in the format `#RRGGBB`.
@@ -358,6 +375,8 @@ class ArCaptchaController {
         token = await _showAsDialog(context);
       case CaptchaType.modalBottomSheet:
         token = await _showAsBottomSheet(context);
+      case CaptchaType.responsiveDialog:
+        token = await _showAsResponsiveDialog(context);
     }
 
     if (token != null) {
@@ -421,10 +440,31 @@ class ArCaptchaController {
           child: ArCaptchaSectionHolder(htmlWidget: _htmlContent),
         ),
       ),
-      actionOnCloseModal: (value) {
-        completer.complete(value);
-      },
+      actionOnCloseModal: (value) => completer.complete(value),
     ).openBottomSheet(context: context);
+
+    return await completer.future;
+  }
+
+  /// Displays captcha inside a **Responsive Dialog**.
+  Future<String?> _showAsResponsiveDialog(BuildContext context) async {
+    Completer<String?> completer = Completer();
+
+    await ResponsiveDialog.show(
+      showDialogParam: ShowDialogParameters(
+        context: context,
+        dialogChildWidget: SizedBox(
+          height: captchaHeight,
+          width: captchaWidth,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: ArCaptchaSectionHolder(htmlWidget: _htmlContent),
+          ),
+        ),
+        barrierDismissible: dialogBarrierDismissible,
+        actionOnCloseModal: (value) => completer.complete(value),
+      ),
+    );
 
     return await completer.future;
   }

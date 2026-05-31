@@ -12,9 +12,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Ar Captcha',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
+      themeMode: ThemeMode.light,
+      theme: ThemeData.light(),
+      darkTheme: ThemeData.dark(),
       home: const MyHomePage(title: 'Ar captcha'),
     );
   }
