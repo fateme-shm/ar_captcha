@@ -74,7 +74,7 @@
 - Add `CaptchaWebViewWeb` widget (Safari-compatible web embedding used by authorization-module)
 - Load ARCaptcha script with `async defer` for more reliable initialization
 
-# 1.1.3
+# 1.1.31
 
 - Port full authorization-module captcha web stack (`CaptchaWebViewWeb` + `ArCaptchaSectionHolder`)
 - Match auth-module controller defaults (`captchaHeight: 450`, dialog without fixed width, `CaptchaParams` API)

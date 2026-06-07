@@ -16,8 +16,15 @@ import 'captcha_web_view_web.dart';
 
 class ArCaptchaSectionHolder extends StatefulWidget {
   final String htmlWidget;
+  final String? siteKey;
+  final String? domain;
 
-  const ArCaptchaSectionHolder({super.key, required this.htmlWidget});
+  const ArCaptchaSectionHolder({
+    super.key,
+    required this.htmlWidget,
+    this.siteKey,
+    this.domain,
+  });
 
   @override
   State<ArCaptchaSectionHolder> createState() => _ArCaptchaSectionHolderState();
