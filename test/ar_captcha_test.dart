@@ -12,6 +12,7 @@ class FakeArCaptchaController extends ArCaptchaController {
   @override
   Future<String?> showCaptcha({
     required BuildContext context,
+    CaptchaParams? params,
     CaptchaType mode = CaptchaType.dialog,
     required Function(String token) onSuccess,
     required Function(String error) onError,

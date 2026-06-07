@@ -73,3 +73,11 @@
 - Fix Safari/iOS white screen on web by rendering captcha in an iframe via `srcdoc` instead of a sandboxed `data:` URL
 - Add `CaptchaWebViewWeb` widget (Safari-compatible web embedding used by authorization-module)
 - Load ARCaptcha script with `async defer` for more reliable initialization
+
+# 1.1.3
+
+- Port full authorization-module captcha web stack (`CaptchaWebViewWeb` + `ArCaptchaSectionHolder`)
+- Match auth-module controller defaults (`captchaHeight: 450`, dialog without fixed width, `CaptchaParams` API)
+- Register iframe view factory once in `initState` (fixes Flutter web platform-view re-registration)
+- Single `postMessage` listener via `js_interop_helper` (avoids double `Navigator.pop` on Safari)
+- Pass `siteKey` / `domain` through `ArCaptchaSectionHolder` for host-app integrations

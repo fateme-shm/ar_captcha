@@ -12,11 +12,17 @@ import '/../controller/ar_captcha_controller.dart';
 /// - [ArCaptchaMobileDialog] (mobile)
 /// - [ArCaptchaWebDialog] (web)
 /// - a fallback [Container] (stub, should never be used).
-
 class ArCaptchaSectionHolder extends StatefulWidget {
   final String htmlWidget;
+  final String? siteKey;
+  final String? domain;
 
-  const ArCaptchaSectionHolder({super.key, required this.htmlWidget});
+  const ArCaptchaSectionHolder({
+    super.key,
+    required this.htmlWidget,
+    this.siteKey,
+    this.domain,
+  });
 
   @override
   State<ArCaptchaSectionHolder> createState() => _ArCaptchaSectionHolderState();
@@ -32,8 +38,6 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
     });
   }
 
-  /// Initializes the JS channel inside the WebView for
-  /// captcha success/error callbacks.
   void _initJsFunction() {
     ArCaptchaController.webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)

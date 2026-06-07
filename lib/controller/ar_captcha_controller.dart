@@ -4,15 +4,14 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '/../res/enums/data_size.dart';
 import '/../res/enums/captcha_type.dart';
+import '../res/model/captcha_params.dart';
 import '../widgets/responsive_dialog.dart';
 import '../res/model/show_dialog_parameters.dart';
 import '/../widgets/custom_modal_bottom_sheet.dart';
 import '/../widgets/loader/ar_captcha_platform.dart';
 
 /// Controller for displaying and managing ArCaptcha widgets
-/// across different UI modes ([CaptchaType.dialog],
-/// [CaptchaType.screen], [CaptchaType.modalBottomSheet], or [CaptchaType.responsiveDialog]).
-///
+/// across different UI modes (dialog, screen, or modal bottom sheet).
 class ArCaptchaController {
   /// The height of the captcha widget container.
   final double captchaHeight;
@@ -27,55 +26,31 @@ class ArCaptchaController {
   final String lang;
 
   /// Set color of every colored element in widget.
-  /// Like checkbox color
-  /// See supported color in colorToString() function
   final Color color;
 
   /// The domain name of the app (default: `localhost`).
-  /// If use in production mood you should pass domain Url
   final String domain;
 
   /// Controls the display mode of the captcha checkbox.
-  ///
-  /// - `DataSize.normal` (default) → Checkbox is visible and shown automatically before captcha execution.
-  /// - `DataSize.invisible` → Checkbox is hidden; captcha executes without showing the checkbox.
   final DataSize dataSize;
 
   /// Controls whether error messages appear below the captcha checkbox.
-  ///
-  /// - `0` (default) → Error messages are shown.
-  /// - `1` → Error messages are disabled.
   final int errorPrint;
 
   /// Default error message when captcha fails.
   final String onErrorMessage;
 
-  /// Stores the generated HTML content for the captcha widget.
   late final String _htmlContent;
 
-  /// The theme mode (light or dark).
   final ThemeMode theme;
 
-  /// Controls whether the modal bottom sheet can be dragged
-  /// Defaults to `true` if not set.
   static bool? enableModalDrag;
-
-  /// Controls whether the modal bottom sheet can be dismissed
   static bool? isModalDismissible;
-
-  /// Controller used for `webview_flutter` (mobile).
   static WebViewController? webViewController;
 
-  /// The maximum width of the responsive dialog.
-  /// Defaults to `600` if not set.
-  /// This is used to limit the width of the responsive dialog.
   final double maxResponsiveDialogWidth;
-
-  /// Dialog parameters
   final bool dialogBarrierDismissible;
 
-  /// Constructor initializes required fields
-  /// and builds the HTML section.
   ArCaptchaController({
     required this.siteKey,
     this.lang = 'en',
@@ -83,7 +58,7 @@ class ArCaptchaController {
     this.onErrorMessage = 'Something went wrong, try again!',
     this.errorPrint = 0,
     this.captchaWidth = 550,
-    this.captchaHeight = 550,
+    this.captchaHeight = 450,
     this.color = Colors.black,
     this.theme = ThemeMode.light,
     this.dataSize = DataSize.normal,
@@ -93,32 +68,14 @@ class ArCaptchaController {
     _htmlContent = _buildHtmlSection();
   }
 
-  /// Get the maximum width of the responsive dialog.
   static double get getMaxResponsiveDialogWidth {
     return ArCaptchaController(siteKey: '').maxResponsiveDialogWidth;
   }
 
-  /// Converts a [Color] object to a CSS-compatible hex color string in the format `#RRGGBB`.
-  ///
-  /// This function ignores the alpha channel (opacity), making it suitable for contexts
-  /// that expect opaque colors (e.g., HTML/CSS attributes, web widgets).
-  ///
-  /// Example:
-  ///   - `Colors.red` → `"#FF0000"`
-  ///   - `Color(0xFFFF5722)` → `"#FF5722"`
-  ///
-  /// Note: If transparency is required, consider using an `rgba()` format instead.
   String colorToString(Color color) {
     return '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
   }
 
-  /// Builds the ArCaptcha HTML content.
-  ///
-  /// This includes:
-  /// - Styling (theme-aware)
-  /// - Loader animation
-  /// - Captcha widget
-  /// - JavaScript handlers for success/error callbacks
   String _buildHtmlSection() {
     return '''
         <!DOCTYPE html>
@@ -280,7 +237,6 @@ class ArCaptchaController {
           <span class="loader"></span>
         </div>
             
-          <!-- ArCaptcha widget -->
           <div class="arcaptcha"
                data-site-key="$siteKey"
                data-lang="$lang"
@@ -293,32 +249,21 @@ class ArCaptchaController {
           </div>
           
           <script>
-              // Posts data back to Flutter (Android/iOS) or WebView (Web). 
               function post(type, payload = null) {     
-                console.log("Posting to Flutter:", { type, payload }); 
-
-                // Callback for Web platforms
                 if (window.self !== window.top) {
                     window.parent.postMessage({ type: type, payload: payload }, '*');
-                    console.log("Sent to parent.");
                 } else {
                     window.postMessage({ type: type, payload: payload }, '*');
-                    console.log("Sent to self (you probably don't want this).");
                 } 
                                 
-                // Callback for Android/IOS platforms
                 if(window.Captcha) {   
                   window.Captcha.postMessage(JSON.stringify({ type, payload }));
                 }
               }
             
-              // Success callback
               function onVerified(token){ post("success", token); }
-                            
-              // Error callback
               function onError(error){ post("error", error); }
             
-              // Show loader for captcha
               const checkInterval = setInterval(() => {
                 if (typeof arcaptcha !== 'undefined' && typeof arcaptcha.execute === 'function') {
                   clearInterval(checkInterval);
@@ -329,7 +274,6 @@ class ArCaptchaController {
                 }
               }, 150);
 
-              // Automatically check the checkbox if enabled
               window.onload = function() {
                 if(${dataSize == DataSize.invisible}) {
                   const checkInterval = setInterval(() => {
@@ -338,7 +282,6 @@ class ArCaptchaController {
                       clearInterval(checkInterval);
                       post("execute-called");
                       
-                      // Remove loader display
                       const loader = document.getElementById('loader');
                       if (loader) {
                         loader.style.display = 'none';
@@ -347,28 +290,37 @@ class ArCaptchaController {
                   }, 150);
                 }
               };
-
-
           </script>
         </body>
         </html>
     ''';
   }
 
-  /// Shows the captcha widget in the chosen [mode].
-  ///
-  /// [onSuccess] is called when the captcha is solved with a valid token.
-  /// [onError] is called when captcha fails or closes without solving.
-  ///
+  Widget _buildSectionHolder() {
+    return ArCaptchaSectionHolder(
+      htmlWidget: _htmlContent,
+      siteKey: siteKey,
+      domain: domain,
+    );
+  }
+
   Future<String?> showCaptcha({
     required BuildContext context,
+    CaptchaParams? params,
     CaptchaType mode = CaptchaType.dialog,
     required Function(String error) onError,
     required Function(String token) onSuccess,
   }) async {
+    final resolved = params ??
+        CaptchaParams(
+          mode: mode,
+          onError: onError,
+          onSuccess: onSuccess,
+        );
+
     String? token;
 
-    switch (mode) {
+    switch (resolved.mode) {
       case CaptchaType.screen:
         token = await _showAsScreen(context);
       case CaptchaType.dialog:
@@ -380,15 +332,14 @@ class ArCaptchaController {
     }
 
     if (token != null) {
-      onSuccess(token);
+      resolved.onSuccess(token);
     } else {
-      onError(onErrorMessage);
+      resolved.onError(onErrorMessage);
     }
 
     return token;
   }
 
-  /// Displays captcha inside a **Dialog** widget.
   Future<String?> _showAsDialog(BuildContext context) async {
     return await showDialog<String?>(
       context: context,
@@ -396,17 +347,15 @@ class ArCaptchaController {
         backgroundColor: Colors.transparent,
         child: SizedBox(
           height: captchaHeight,
-          width: captchaWidth,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: ArCaptchaSectionHolder(htmlWidget: _htmlContent),
+            child: _buildSectionHolder(),
           ),
         ),
       ),
     );
   }
 
-  /// Displays captcha as a full **Screen** using Navigator.push.
   Future<String?> _showAsScreen(BuildContext context) async {
     return await Navigator.of(context).push<String?>(
       MaterialPageRoute(
@@ -419,7 +368,7 @@ class ArCaptchaController {
             child: SizedBox.expand(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: ArCaptchaSectionHolder(htmlWidget: _htmlContent),
+                child: _buildSectionHolder(),
               ),
             ),
           ),
@@ -428,7 +377,6 @@ class ArCaptchaController {
     );
   }
 
-  /// Displays captcha inside a **Modal Bottom Sheet**.
   Future<String?> _showAsBottomSheet(BuildContext context) async {
     Completer<String?> completer = Completer();
 
@@ -437,16 +385,17 @@ class ArCaptchaController {
         height: captchaHeight,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: ArCaptchaSectionHolder(htmlWidget: _htmlContent),
+          child: _buildSectionHolder(),
         ),
       ),
-      actionOnCloseModal: (value) => completer.complete(value),
+      actionOnCloseModal: (value) {
+        completer.complete(value?.toString());
+      },
     ).openBottomSheet(context: context);
 
     return await completer.future;
   }
 
-  /// Displays captcha inside a **Responsive Dialog**.
   Future<String?> _showAsResponsiveDialog(BuildContext context) async {
     Completer<String?> completer = Completer();
 
@@ -458,11 +407,11 @@ class ArCaptchaController {
           width: captchaWidth,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: ArCaptchaSectionHolder(htmlWidget: _htmlContent),
+            child: _buildSectionHolder(),
           ),
         ),
         barrierDismissible: dialogBarrierDismissible,
-        actionOnCloseModal: (value) => completer.complete(value),
+        actionOnCloseModal: (value) => completer.complete(value?.toString()),
       ),
     );
 
