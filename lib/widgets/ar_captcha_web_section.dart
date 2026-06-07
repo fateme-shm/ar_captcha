@@ -87,13 +87,6 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
   Widget build(BuildContext context) {
     return CaptchaWebViewWeb(
       html: widget.htmlWidget,
-      onSuccess: (token) {
-        Navigator.of(context).pop(token);
-      },
-      onError: (error) {
-        debugPrint('ArCaptcha error: $error');
-        Navigator.of(context).pop(error);
-      },
     );
   }
 }

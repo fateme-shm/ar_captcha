@@ -1,3 +1,4 @@
+
 ## 1.0.0
 
 - Initial release of **ar_captcha** 🎉
@@ -81,3 +82,8 @@
 - Register iframe view factory once in `initState` (fixes Flutter web platform-view re-registration)
 - Single `postMessage` listener via `js_interop_helper` (avoids double `Navigator.pop` on Safari)
 - Pass `siteKey` / `domain` through `ArCaptchaSectionHolder` for host-app integrations
+
+# 1.1.5
+- Fix iOS Safari web rendering by loading captcha HTML through a `Blob` URL instead of `iframe.srcdoc`
+- Add iframe `sandbox` / `allow` attributes for more reliable ARCaptcha script execution on web
+- Force `CaptchaType.screen` on iOS Safari web when dialog-style modes are requested

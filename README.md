@@ -113,6 +113,10 @@ class MyCaptchaScreen extends StatelessWidget {
   - Uses maxResponsiveDialogWidth
   - Best default for mixed platforms
 
+- iOS Safari Web
+  - The package automatically uses a Blob-backed iframe instead of `srcdoc`
+  - Dialog-style modes are promoted to `CaptchaType.screen` to avoid Safari platform-view overlay issues
+
 ## API Reference
 
 | Parameter                  | Type        | Description                             | Default         |

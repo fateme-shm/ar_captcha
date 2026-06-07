@@ -9,6 +9,7 @@ import '../widgets/responsive_dialog.dart';
 import '../res/model/show_dialog_parameters.dart';
 import '/../widgets/custom_modal_bottom_sheet.dart';
 import '/../widgets/loader/ar_captcha_platform.dart';
+import '../res/utils/web_browser_info.dart';
 
 /// Controller for displaying and managing ArCaptcha widgets
 /// across different UI modes (dialog, screen, or modal bottom sheet).
@@ -317,10 +318,11 @@ class ArCaptchaController {
           onError: onError,
           onSuccess: onSuccess,
         );
+    final effectiveMode = _resolveModeForPlatform(resolved.mode);
 
     String? token;
 
-    switch (resolved.mode) {
+    switch (effectiveMode) {
       case CaptchaType.screen:
         token = await _showAsScreen(context);
       case CaptchaType.dialog:
@@ -338,6 +340,21 @@ class ArCaptchaController {
     }
 
     return token;
+  }
+
+  CaptchaType _resolveModeForPlatform(CaptchaType mode) {
+    if (!isIOSSafariWeb) {
+      return mode;
+    }
+
+    switch (mode) {
+      case CaptchaType.screen:
+        return CaptchaType.screen;
+      case CaptchaType.dialog:
+      case CaptchaType.modalBottomSheet:
+      case CaptchaType.responsiveDialog:
+        return CaptchaType.screen;
+    }
   }
 
   Future<String?> _showAsDialog(BuildContext context) async {
