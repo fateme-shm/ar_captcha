@@ -15,7 +15,6 @@ dependencies:
   web: ^1.1.1
   webview_flutter: ^4.13.1
   modal_bottom_sheet: ^3.0.0
-  flutter_widget_from_html: ^0.17.2
 
 dev_dependencies:
   flutter_test:
