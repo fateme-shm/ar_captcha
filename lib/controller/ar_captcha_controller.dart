@@ -125,7 +125,7 @@ class ArCaptchaController {
         <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <script src="https://widget.arcaptcha.ir/1/api.js?domain=$domain" async></script>
+          <script src="https://widget.arcaptcha.ir/1/api.js?domain=$domain" async defer></script>
           <style>
           
           * {

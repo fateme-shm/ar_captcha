@@ -67,3 +67,9 @@
 
 - Added `WASM` for web
 - Fix reported bug
+
+# 1.1.2
+
+- Fix Safari/iOS white screen on web by rendering captcha in an iframe via `srcdoc` instead of a sandboxed `data:` URL
+- Add `CaptchaWebViewWeb` widget (Safari-compatible web embedding used by authorization-module)
+- Load ARCaptcha script with `async defer` for more reliable initialization
