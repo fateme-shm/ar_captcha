@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:ui_web' as ui;
 import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
@@ -22,7 +23,8 @@ class ArCaptchaSectionHolder extends StatefulWidget {
 }
 
 class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
-  late final String viewId;
+  String? viewId;
+
   /// Subscription for listening to JS `window.postMessage` events.
   StreamSubscription<web.MessageEvent>? _messageSubscription;
 
@@ -31,7 +33,9 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
     super.initState();
 
     viewId = 'captcha-${DateTime.now().millisecondsSinceEpoch}';
-    CaptchaViewRegistry.register(viewId, widget.htmlWidget);
+    CaptchaViewRegistry.register(viewId ?? '', widget.htmlWidget);
+
+    log('View id: $viewId');
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleCallBack();
@@ -70,7 +74,7 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
 
   @override
   Widget build(BuildContext context) {
-    return HtmlElementView(viewType: viewId);
+    return HtmlElementView(viewType: viewId ?? '');
   }
 }
 
