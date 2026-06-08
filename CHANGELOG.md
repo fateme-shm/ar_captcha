@@ -87,3 +87,7 @@
 - Fix iOS Safari web rendering by loading captcha HTML through a `Blob` URL instead of `iframe.srcdoc`
 - Add iframe `sandbox` / `allow` attributes for more reliable ARCaptcha script execution on web
 - Force `CaptchaType.screen` on iOS Safari web when dialog-style modes are requested
+
+
+# 1.1.6
+- Adding log ability to the whole package 
