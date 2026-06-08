@@ -52,11 +52,11 @@ class _MyHomePageState extends State<MyHomePage> {
               mode: CaptchaType.dialog,
               onSuccess: (token) {
                 // The success function return captcha token key
-                debugPrint("Captcha success: $token");
+                print("Captcha success: $token");
               },
               onError: (error) {
                 // Return onErrorMessage that you gave in controller
-                debugPrint("Captcha failed: $error");
+                print("Captcha failed: $error");
               },
             );
           },

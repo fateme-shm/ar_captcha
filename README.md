@@ -74,10 +74,10 @@ class MyCaptchaScreen extends StatelessWidget {
               context: context,
               mode: CaptchaType.dialog,
               onSuccess: (token) {
-                debugPrint("Captcha success: $token");
+                print("Captcha success: $token");
               },
               onError: (error) {
-                debugPrint("Captcha failed: $error");
+                print("Captcha failed: $error");
               },
             );
           },

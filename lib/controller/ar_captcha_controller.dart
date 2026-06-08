@@ -51,6 +51,7 @@ class ArCaptchaController {
 
   final double maxResponsiveDialogWidth;
   final bool dialogBarrierDismissible;
+  final bool enableDebugLogging;
 
   ArCaptchaController({
     required this.siteKey,
@@ -65,8 +66,21 @@ class ArCaptchaController {
     this.dataSize = DataSize.normal,
     this.dialogBarrierDismissible = true,
     this.maxResponsiveDialogWidth = 600,
+    this.enableDebugLogging = true,
   }) {
+    _log(
+      'created domain=$domain siteKeyConfigured=${siteKey.isNotEmpty} '
+      'lang=$lang dataSize=${dataSize.name} theme=${theme.name} '
+      'captcha=${captchaWidth}x$captchaHeight isIOSSafariWeb=$isIOSSafariWeb',
+    );
     _htmlContent = _buildHtmlSection();
+  }
+
+  void _log(String message) {
+    if (enableDebugLogging) {
+      // ignore: avoid_print
+      print('[ArCaptcha][Controller] $message');
+    }
   }
 
   static double get getMaxResponsiveDialogWidth {
@@ -250,7 +264,35 @@ class ArCaptchaController {
           </div>
           
           <script>
+              const arCaptchaDebugEnabled = $enableDebugLogging;
+              function arCaptchaLog(message, details = null) {
+                if (!arCaptchaDebugEnabled) return;
+                if (details == null) {
+                  console.log('[ArCaptcha][JS]', message);
+                } else {
+                  console.log('[ArCaptcha][JS]', message, details);
+                }
+              }
+
+              window.addEventListener('error', function(event) {
+                arCaptchaLog('window error', {
+                  message: event.message,
+                  filename: event.filename,
+                  line: event.lineno,
+                  column: event.colno
+                });
+              });
+
+              window.addEventListener('unhandledrejection', function(event) {
+                arCaptchaLog('unhandled rejection', String(event.reason));
+              });
+
               function post(type, payload = null) {     
+                arCaptchaLog('postMessage', {
+                  type: type,
+                  payloadLength: typeof payload === 'string' ? payload.length : 0,
+                  isTopWindow: window.self === window.top
+                });
                 if (window.self !== window.top) {
                     window.parent.postMessage({ type: type, payload: payload }, '*');
                 } else {
@@ -262,23 +304,48 @@ class ArCaptchaController {
                 }
               }
             
-              function onVerified(token){ post("success", token); }
-              function onError(error){ post("error", error); }
+              function onVerified(token){
+                arCaptchaLog('verified', { tokenLength: token ? token.length : 0 });
+                post("success", token);
+              }
+              function onError(error){
+                arCaptchaLog('provider error callback', String(error));
+                post("error", error);
+              }
             
+              let readinessAttempts = 0;
               const checkInterval = setInterval(() => {
+                readinessAttempts++;
                 if (typeof arcaptcha !== 'undefined' && typeof arcaptcha.execute === 'function') {
                   clearInterval(checkInterval);
+                  arCaptchaLog('API ready', { attempts: readinessAttempts });
                   const loader = document.getElementById('loader');
                   if (loader) {
                     loader.style.display = 'none';
                   }
+                } else if (readinessAttempts === 20 || readinessAttempts === 50) {
+                  arCaptchaLog('API still unavailable', {
+                    attempts: readinessAttempts,
+                    arcaptchaType: typeof arcaptcha
+                  });
                 }
               }, 150);
 
               window.onload = function() {
+                arCaptchaLog('window loaded', {
+                  href: window.location.href,
+                  readyState: document.readyState,
+                  invisible: ${dataSize == DataSize.invisible},
+                  widgetCount: document.querySelectorAll('.arcaptcha').length
+                });
                 if(${dataSize == DataSize.invisible}) {
+                  let executeAttempts = 0;
                   const checkInterval = setInterval(() => {
+                    executeAttempts++;
                     if (typeof arcaptcha !== 'undefined' && typeof arcaptcha.execute === 'function') {
+                      arCaptchaLog('executing invisible captcha', {
+                        attempts: executeAttempts
+                      });
                       arcaptcha.execute();
                       clearInterval(checkInterval);
                       post("execute-called");
@@ -298,10 +365,12 @@ class ArCaptchaController {
   }
 
   Widget _buildSectionHolder() {
+    _log('building section holder');
     return ArCaptchaSectionHolder(
       htmlWidget: _htmlContent,
       siteKey: siteKey,
       domain: domain,
+      enableDebugLogging: enableDebugLogging,
     );
   }
 
@@ -319,6 +388,10 @@ class ArCaptchaController {
           onSuccess: onSuccess,
         );
     final effectiveMode = _resolveModeForPlatform(resolved.mode);
+    _log(
+      'showCaptcha requestedMode=${resolved.mode.name} '
+      'effectiveMode=${effectiveMode.name} mounted=${context.mounted}',
+    );
 
     String? token;
 
@@ -334,8 +407,10 @@ class ArCaptchaController {
     }
 
     if (token != null) {
+      _log('captcha completed tokenLength=${token.length}');
       resolved.onSuccess(token);
     } else {
+      _log('captcha closed or failed without a token');
       resolved.onError(onErrorMessage);
     }
 
@@ -344,9 +419,11 @@ class ArCaptchaController {
 
   CaptchaType _resolveModeForPlatform(CaptchaType mode) {
     if (!isIOSSafariWeb) {
+      _log('keeping requested mode=${mode.name}');
       return mode;
     }
 
+    _log('iOS Safari detected; resolving mode=${mode.name}');
     switch (mode) {
       case CaptchaType.screen:
         return CaptchaType.screen;

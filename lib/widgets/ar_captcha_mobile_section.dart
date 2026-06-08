@@ -16,12 +16,14 @@ class ArCaptchaSectionHolder extends StatefulWidget {
   final String htmlWidget;
   final String? siteKey;
   final String? domain;
+  final bool enableDebugLogging;
 
   const ArCaptchaSectionHolder({
     super.key,
     required this.htmlWidget,
     this.siteKey,
     this.domain,
+    required this.enableDebugLogging,
   });
 
   @override
@@ -52,7 +54,7 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
           if (type == 'success') {
             Navigator.of(context).pop(payload);
           } else if (type == 'error') {
-            debugPrint('ArCaptcha error: $payload');
+            print('ArCaptcha error: $payload');
           }
         },
       )
