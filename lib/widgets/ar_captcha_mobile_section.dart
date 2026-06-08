@@ -54,6 +54,7 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
           if (type == 'success') {
             Navigator.of(context).pop(payload);
           } else if (type == 'error') {
+            // ignore: avoid_print
             print('ArCaptcha error: $payload');
           }
         },

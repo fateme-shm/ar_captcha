@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:js_interop';
 import 'dart:ui_web' as ui;
 
@@ -40,7 +39,8 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
     super.initState();
     _viewId = 'captcha-${DateTime.now().microsecondsSinceEpoch}';
     _log(
-      'init viewId=$_viewId isIOSSafariWeb=$isIOSSafariWeb '
+      'init viewId=$_viewId isSafariWeb=$isSafariWeb '
+      'isIOSSafariWeb=$isIOSSafariWeb '
       'htmlLength=${widget.html.length}',
     );
     _iframe = _buildIframe();
@@ -77,10 +77,7 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
     final iframe = web.HTMLIFrameElement()
       ..style.border = 'none'
       ..style.width = '100%'
-      ..style.height = '100%'
-      ..setAttribute(
-          'sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups')
-      ..setAttribute('allow', 'cross-origin-isolated');
+      ..style.height = '100%';
 
     void handleLoad(web.Event _) {
       final rect = iframe.getBoundingClientRect();
@@ -89,18 +86,9 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
         'rect=${rect.width}x${rect.height} src=${iframe.src}',
       );
 
-      final loadedBlobUrl = _blobUrl;
-      if (loadedBlobUrl == null) {
-        return;
+      if (_blobUrl != null) {
+        _log('Blob URL retained until iframe disposal');
       }
-
-      Timer(const Duration(milliseconds: 100), () {
-        if (_blobUrl == loadedBlobUrl) {
-          _log('revoking loaded Blob URL');
-          web.URL.revokeObjectURL(loadedBlobUrl);
-          _blobUrl = null;
-        }
-      });
     }
 
     void handleError(web.Event _) {
@@ -127,7 +115,7 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
   void _setIframeContent(String html) {
     _revokeBlobUrl();
 
-    if (isIOSSafariWeb) {
+    if (isSafariWeb) {
       final blob = web.Blob(
         <JSString>[html.toJS].toJS,
         web.BlobPropertyBag(type: 'text/html'),
@@ -135,7 +123,7 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
       final blobUrl = web.URL.createObjectURL(blob);
       _blobUrl = blobUrl;
       _iframe.src = blobUrl;
-      _log('content assigned with Blob URL');
+      _log('content assigned with Blob URL for Safari');
       return;
     }
 

@@ -90,4 +90,13 @@
 
 
 # 1.1.6
-- Adding log ability to the whole package 
+- Add debug logging across the package.
+
+# 1.1.7
+
+- Use Blob-backed iframe documents on macOS and iOS Safari.
+- Remove iframe sandbox and permission attributes that prevented ARCaptcha's
+  nested widget from rendering reliably in Safari.
+- Keep Blob URLs alive for the iframe lifetime.
+- Add detailed DOM, iframe, provider-readiness, and callback diagnostics.
+- Improve Safari browser detection and suppress internal layout-controller logs.

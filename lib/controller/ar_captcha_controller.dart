@@ -84,7 +84,10 @@ class ArCaptchaController {
   }
 
   static double get getMaxResponsiveDialogWidth {
-    return ArCaptchaController(siteKey: '').maxResponsiveDialogWidth;
+    return ArCaptchaController(
+      siteKey: '',
+      enableDebugLogging: false,
+    ).maxResponsiveDialogWidth;
   }
 
   String colorToString(Color color) {
@@ -287,6 +290,40 @@ class ArCaptchaController {
                 arCaptchaLog('unhandled rejection', String(event.reason));
               });
 
+              function arCaptchaDomSnapshot(label) {
+                const container = document.querySelector('.arcaptcha');
+                const rect = container ? container.getBoundingClientRect() : null;
+                arCaptchaLog('DOM snapshot: ' + label, {
+                  containerFound: !!container,
+                  containerChildren: container ? container.children.length : -1,
+                  containerHtmlLength: container ? container.innerHTML.length : -1,
+                  containerRect: rect ? {
+                    width: rect.width,
+                    height: rect.height
+                  } : null,
+                  iframeCount: document.querySelectorAll('iframe').length,
+                  bodyHtmlLength: document.body ? document.body.innerHTML.length : -1
+                });
+              }
+
+              let mutationLogCount = 0;
+              const mutationObserver = new MutationObserver(function(mutations) {
+                if (mutationLogCount >= 20) return;
+                mutationLogCount++;
+                arCaptchaLog('DOM mutation', {
+                  mutationCount: mutations.length,
+                  iframeCount: document.querySelectorAll('iframe').length,
+                  containerChildren:
+                    document.querySelector('.arcaptcha')?.children.length ?? -1
+                });
+              });
+
+              mutationObserver.observe(document.documentElement, {
+                childList: true,
+                subtree: true,
+                attributes: true
+              });
+
               function post(type, payload = null) {     
                 arCaptchaLog('postMessage', {
                   type: type,
@@ -338,6 +375,10 @@ class ArCaptchaController {
                   invisible: ${dataSize == DataSize.invisible},
                   widgetCount: document.querySelectorAll('.arcaptcha').length
                 });
+                arCaptchaDomSnapshot('window-load');
+                setTimeout(() => arCaptchaDomSnapshot('500ms'), 500);
+                setTimeout(() => arCaptchaDomSnapshot('1500ms'), 1500);
+                setTimeout(() => arCaptchaDomSnapshot('5000ms'), 5000);
                 if(${dataSize == DataSize.invisible}) {
                   let executeAttempts = 0;
                   const checkInterval = setInterval(() => {
