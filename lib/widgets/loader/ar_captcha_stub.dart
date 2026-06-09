@@ -10,11 +10,14 @@ class ArCaptchaSectionHolder extends StatelessWidget {
 
   final bool showLoadingOverlay;
 
+  final bool enableDebugLogging;
+
   const ArCaptchaSectionHolder({
     super.key,
     required this.htmlWidget,
     this.showLoadingOverlay = true,
     this.loadingText = 'Loading captcha ...',
+    required this.enableDebugLogging,
   });
 
   @override

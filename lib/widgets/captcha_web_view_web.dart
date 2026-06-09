@@ -17,13 +17,14 @@ class CaptchaWebViewWeb extends StatefulWidget {
   final void Function(String token) onSuccess;
   final void Function(String error) onError;
   final VoidCallback? onLoaded;
-
+  final bool enableDebugLogging;
   const CaptchaWebViewWeb({
     super.key,
     required this.html,
     required this.onSuccess,
     required this.onError,
     this.onLoaded,
+    required this.enableDebugLogging,
   });
 
   @override
@@ -94,4 +95,3 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
     );
   }
 }
-

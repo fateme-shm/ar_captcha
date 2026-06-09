@@ -17,12 +17,14 @@ class ArCaptchaSectionHolder extends StatefulWidget {
   final String htmlWidget;
   final bool showLoadingOverlay;
   final String? loadingText;
+  final bool enableDebugLogging;
 
   const ArCaptchaSectionHolder({
     super.key,
     required this.htmlWidget,
     this.showLoadingOverlay = false,
     this.loadingText,
+    required this.enableDebugLogging,
   });
 
   @override
@@ -44,7 +46,12 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
 
   /// Handles messages posted from the captcha widget (success/error).
   void _handleCallBack() {
-    if (!mounted) return;
+    if (!mounted) {
+      _log('listener not attached because widget is unmounted');
+      return;
+    }
+
+    _log('attaching window message listener');
 
     _messageSubscription = web.window.onMessage.listen((
       web.MessageEvent message,
@@ -57,11 +64,23 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
         final type = data['type'];
         final payload = data['payload'];
 
+        _log(
+          'received type=${type?.isEmpty == true ? "(empty)" : type} '
+          'payloadLength=${payload?.length ?? 0}',
+        );
+
         if (type == 'success') {
+          if (!mounted) return;
+          _log('success: closing captcha route');
           Navigator.of(context).pop(payload);
         } else if (type == 'error') {
-          debugPrint('ArCaptcha error: $payload');
+          if (!mounted) return;
+          _log('error callback received $payload');
           Navigator.of(context).pop(payload);
+        } else if (type == 'state') {
+          _log('state update: $payload');
+        } else if (type == 'execute-called') {
+          _log('captcha execute invoked from web page');
         }
       }
     });
@@ -69,6 +88,7 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
 
   @override
   void dispose() {
+    _log('dispose and cancel message listener');
     _messageSubscription?.cancel();
     super.dispose();
   }
@@ -77,17 +97,15 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
   Widget build(BuildContext context) {
     final captchaView = CaptchaWebViewWeb(
       html: widget.htmlWidget,
+      enableDebugLogging: widget.enableDebugLogging,
       onLoaded: () {
         if (!mounted) return;
+        _log('iframe reported loaded; hiding Flutter overlay');
         setState(() => _isLoaded = true);
       },
-      onSuccess: (token) {
-        Navigator.of(context).pop(token);
-      },
-      onError: (error) {
-        debugPrint('ArCaptcha error: $error');
-        Navigator.of(context).pop(error);
-      },
+      onSuccess: (payload) =>
+          _log('captcha success callback received: $payload'),
+      onError: (error) => _log('captcha error: $error'),
     );
 
     if (!widget.showLoadingOverlay) return captchaView;
@@ -118,5 +136,13 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
           ),
       ],
     );
+  }
+  // ------------------------- Logger functions -------------------------
+
+  void _log(String message) {
+    if (widget.enableDebugLogging) {
+      // ignore: avoid_print
+      print('[ArCaptcha][Messages] $message');
+    }
   }
 }

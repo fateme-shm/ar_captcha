@@ -81,6 +81,8 @@ class ArCaptchaController {
   /// Show overlay Text loading before captcha loaded
   final String? loadingOverlayText;
 
+  final bool enableDebugLogging;
+
   /// Constructor initializes required fields
   /// and builds the HTML section.
   ArCaptchaController({
@@ -90,7 +92,7 @@ class ArCaptchaController {
     this.onErrorMessage = 'Something went wrong, try again!',
     this.errorPrint = 0,
     this.captchaWidth = 550,
-    this.captchaHeight = 450,
+    this.captchaHeight = 550,
     this.color = Colors.black,
     this.theme = ThemeMode.light,
     this.dataSize = DataSize.normal,
@@ -98,7 +100,14 @@ class ArCaptchaController {
     this.maxResponsiveDialogWidth = 600,
     this.needToShowLoadingOverlay = true,
     this.loadingOverlayText = 'Loading captcha ...',
+    this.enableDebugLogging = false,
   }) {
+    _log(
+      'created domain=$domain siteKeyConfigured=${siteKey.isNotEmpty} '
+      'lang=$lang dataSize=${dataSize.name} theme=${theme.name} '
+      'captcha=${captchaWidth}x$captchaHeight',
+    );
+
     _htmlContent = _buildHtmlSection();
   }
 
@@ -302,8 +311,17 @@ class ArCaptchaController {
           </div>
           
           <script>
+              const debugLoggingEnabled = ${enableDebugLogging.toString()};
+
+              function log(message) {
+                if (debugLoggingEnabled) {
+                  console.log('[ArCaptcha][HTML] ' + message);
+                }
+              }
+
               <!-- Posts data back to Flutter (Android/iOS) or WebView (Web). -->  
               function post(type, payload = null) {     
+                log('post type=' + type + ' payload=' + (payload ?? ''));
 
                 <!-- Callback for Web platforms -->  
                 if (window.self !== window.top) {
@@ -317,36 +335,56 @@ class ArCaptchaController {
                   window.Captcha.postMessage(JSON.stringify({ type, payload }));
                 }
               }
+
+              function postState(payload) {
+                post("state", payload);
+              }
             
               <!-- Success callback -->
-              function onVerified(token){ post("success", token); }
+              function onVerified(token){
+                log('captcha verified tokenLength=' + ((token || '').length));
+                post("success", token);
+              }
                             
               <!-- Error callback -->
-              function onError(error){ post("error", error); }
+              function onError(error){
+                log('captcha error=' + (error ?? 'unknown'));
+                post("error", error);
+              }
             
               <!-- Show loader for captcha -->
               const checkInterval = setInterval(() => {
                 if (typeof arcaptcha !== 'undefined' && typeof arcaptcha.execute === 'function') {
                   clearInterval(checkInterval);
+                  postState('arcaptcha-ready');
                   const loader = document.getElementById('loader');
                   if (loader) {
                     loader.style.display = 'none';
+                    postState('loader-hidden');
                   }
                 }
               }, 150);
 
               window.onload = function() {
+                postState('window-loaded');
                 if(${dataSize == DataSize.invisible}) {
-                  const checkInterval = setInterval(() => {
+                  postState('invisible-mode');
+                  const invisibleCheckInterval = setInterval(() => {
                     if (typeof arcaptcha !== 'undefined' && typeof arcaptcha.execute === 'function') {
-                      arcaptcha.execute();
-                      clearInterval(checkInterval);
-                      post("execute-called");
-                      
-                      <!-- Remove loader display -->
-                      const loader = document.getElementById('loader');
-                      if (loader) {
-                        loader.style.display = 'none';
+                      try {
+                        arcaptcha.execute();
+                        clearInterval(invisibleCheckInterval);
+                        post("execute-called");
+                        
+                        <!-- Remove loader display -->
+                        const loader = document.getElementById('loader');
+                        if (loader) {
+                          loader.style.display = 'none';
+                          postState('loader-hidden-after-execute');
+                        }
+                      } catch (error) {
+                        clearInterval(invisibleCheckInterval);
+                        post("error", String(error));
                       }
                     }
                   }, 150);
@@ -371,6 +409,10 @@ class ArCaptchaController {
   }) async {
     String? token;
 
+    _log(
+      'showCaptcha requestedMode=${params.mode} mounted=${context.mounted}',
+    );
+
     switch (params.mode) {
       case CaptchaType.screen:
         token = await _showAsScreen(context);
@@ -383,8 +425,10 @@ class ArCaptchaController {
     }
 
     if (token != null) {
+      _log('captcha completed tokenLength=${token.length}');
       params.onSuccess(token);
     } else {
+      _log('captcha closed or failed without a token');
       params.onError(onErrorMessage);
     }
 
@@ -406,6 +450,7 @@ class ArCaptchaController {
               htmlWidget: _htmlContent,
               loadingText: loadingOverlayText,
               showLoadingOverlay: needToShowLoadingOverlay,
+              enableDebugLogging: enableDebugLogging,
             ),
           ),
         ),
@@ -430,6 +475,7 @@ class ArCaptchaController {
                   htmlWidget: _htmlContent,
                   loadingText: loadingOverlayText,
                   showLoadingOverlay: needToShowLoadingOverlay,
+                  enableDebugLogging: enableDebugLogging,
                 ),
               ),
             ),
@@ -452,6 +498,7 @@ class ArCaptchaController {
             htmlWidget: _htmlContent,
             loadingText: loadingOverlayText,
             showLoadingOverlay: needToShowLoadingOverlay,
+            enableDebugLogging: enableDebugLogging,
           ),
         ),
       ),
@@ -479,6 +526,7 @@ class ArCaptchaController {
               htmlWidget: _htmlContent,
               loadingText: loadingOverlayText,
               showLoadingOverlay: needToShowLoadingOverlay,
+              enableDebugLogging: enableDebugLogging,
             ),
           ),
         ),
@@ -488,5 +536,14 @@ class ArCaptchaController {
     );
 
     return await completer.future;
+  }
+
+  // ------------------------- Logger functions -------------------------
+
+  void _log(String message) {
+    if (enableDebugLogging) {
+      // ignore: avoid_print
+      print('[ArCaptcha][Controller] $message');
+    }
   }
 }

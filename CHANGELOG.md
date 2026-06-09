@@ -1,3 +1,4 @@
+
 ## 1.0.0
 
 - Initial release of **ar_captcha** 🎉
@@ -98,3 +99,8 @@
 
 # 1.2.1
 - Change readme
+
+
+# 1.2.2
+- Fixed the double `Navigator.pop` on web captcha success/error that could close the OTP screen under `responsiveDialog`.
+- Added debug logging around captcha initiation and web lifecycle events to help trace captcha open, load, execute, success, and error flows.
