@@ -15,14 +15,25 @@ import '/../controller/ar_captcha_controller.dart';
 
 class ArCaptchaSectionHolder extends StatefulWidget {
   final String htmlWidget;
+  final bool showLoadingOverlay;
+  final String? loadingText;
+  final bool enableDebugLogging;
 
-  const ArCaptchaSectionHolder({super.key, required this.htmlWidget});
+  const ArCaptchaSectionHolder({
+    super.key,
+    required this.htmlWidget,
+    this.showLoadingOverlay = false,
+    this.loadingText,
+    required this.enableDebugLogging,
+  });
 
   @override
   State<ArCaptchaSectionHolder> createState() => _ArCaptchaSectionHolderState();
 }
 
 class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
+  bool _isLoaded = false;
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +49,15 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
     ArCaptchaController.webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.transparent)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) {
+            if (!mounted) return;
+            _log('webview page finished loading; hiding overlay');
+            setState(() => _isLoaded = true);
+          },
+        ),
+      )
       ..addJavaScriptChannel(
         'Captcha',
         onMessageReceived: (message) {
@@ -48,7 +68,7 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
           if (type == 'success') {
             Navigator.of(context).pop(payload);
           } else if (type == 'error') {
-            debugPrint('ArCaptcha error: $payload');
+            _log('error callback received $payload');
           }
         },
       )
@@ -59,11 +79,49 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
 
   @override
   Widget build(BuildContext context) {
-    return ArCaptchaController.webViewController == null
-        ? const SizedBox.shrink()
-        : WebViewWidget(
-            layoutDirection: TextDirection.rtl,
-            controller: ArCaptchaController.webViewController!,
-          );
+    if (ArCaptchaController.webViewController == null) {
+      return const SizedBox.shrink();
+    }
+
+    final captchaView = WebViewWidget(
+      layoutDirection: TextDirection.rtl,
+      controller: ArCaptchaController.webViewController!,
+    );
+
+    if (!widget.showLoadingOverlay) return captchaView;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(child: captchaView),
+        if (!_isLoaded)
+          Positioned.fill(
+            child: ColoredBox(
+              color: Theme.of(context).colorScheme.surface,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.loadingText ?? 'Loading captcha ...',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _log(String message) {
+    if (widget.enableDebugLogging) {
+      // ignore: avoid_print
+      print('[ArCaptcha][Mobile] $message');
+    }
   }
 }

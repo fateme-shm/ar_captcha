@@ -104,3 +104,6 @@
 # 1.2.2
 - Fixed the double `Navigator.pop` on web captcha success/error that could close the OTP screen under `responsiveDialog`.
 - Added debug logging around captcha initiation and web lifecycle events to help trace captcha open, load, execute, success, and error flows.
+
+# 1.2.3
+- Add needed params to the `ArCaptchaSectionHolder` mobile mode
