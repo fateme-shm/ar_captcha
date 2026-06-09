@@ -2,12 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '/../res/enums/data_size.dart';
-import '/../res/enums/captcha_type.dart';
-import '../widgets/responsive_dialog.dart';
+import '../res/enums/captcha_type.dart';
+import '../res/enums/data_size.dart';
+import '../res/model/captcha_params.dart';
 import '../res/model/show_dialog_parameters.dart';
-import '/../widgets/custom_modal_bottom_sheet.dart';
-import '/../widgets/loader/ar_captcha_platform.dart';
+import '../widgets/custom_modal_bottom_sheet.dart';
+import '../widgets/loader/ar_captcha_platform.dart';
+import '../widgets/responsive_dialog.dart';
 
 /// Controller for displaying and managing ArCaptcha widgets
 /// across different UI modes ([CaptchaType.dialog],
@@ -74,6 +75,12 @@ class ArCaptchaController {
   /// Dialog parameters
   final bool dialogBarrierDismissible;
 
+  /// Show overlay loading before captcha loaded
+  final bool needToShowLoadingOverlay;
+
+  /// Show overlay Text loading before captcha loaded
+  final String? loadingOverlayText;
+
   /// Constructor initializes required fields
   /// and builds the HTML section.
   ArCaptchaController({
@@ -83,12 +90,14 @@ class ArCaptchaController {
     this.onErrorMessage = 'Something went wrong, try again!',
     this.errorPrint = 0,
     this.captchaWidth = 550,
-    this.captchaHeight = 550,
+    this.captchaHeight = 450,
     this.color = Colors.black,
     this.theme = ThemeMode.light,
     this.dataSize = DataSize.normal,
     this.dialogBarrierDismissible = true,
     this.maxResponsiveDialogWidth = 600,
+    this.needToShowLoadingOverlay = true,
+    this.loadingOverlayText = 'Loading captcha ...',
   }) {
     _htmlContent = _buildHtmlSection();
   }
@@ -271,7 +280,7 @@ class ArCaptchaController {
           position: fixed;
           top: 0; left: 0;
           width: 100%; height: 100%;
-          background: background: ${dataSize == DataSize.invisible ? 'transparent' : theme == ThemeMode.light ? '#ffffff' : '#333333'};;
+          background: background: ${dataSize == DataSize.invisible ? 'transparent' : theme == ThemeMode.light ? '#ffffff' : '#333333'};
           display: flex;
           align-items: center;
           justify-content: center;
@@ -293,32 +302,29 @@ class ArCaptchaController {
           </div>
           
           <script>
-              // Posts data back to Flutter (Android/iOS) or WebView (Web). 
+              <!-- Posts data back to Flutter (Android/iOS) or WebView (Web). -->  
               function post(type, payload = null) {     
-                console.log("Posting to Flutter:", { type, payload }); 
 
-                // Callback for Web platforms
+                <!-- Callback for Web platforms -->  
                 if (window.self !== window.top) {
                     window.parent.postMessage({ type: type, payload: payload }, '*');
-                    console.log("Sent to parent.");
                 } else {
                     window.postMessage({ type: type, payload: payload }, '*');
-                    console.log("Sent to self (you probably don't want this).");
                 } 
                                 
-                // Callback for Android/IOS platforms
+                <!-- Callback for Android/IOS platforms -->   
                 if(window.Captcha) {   
                   window.Captcha.postMessage(JSON.stringify({ type, payload }));
                 }
               }
             
-              // Success callback
+              <!-- Success callback -->
               function onVerified(token){ post("success", token); }
                             
-              // Error callback
+              <!-- Error callback -->
               function onError(error){ post("error", error); }
             
-              // Show loader for captcha
+              <!-- Show loader for captcha -->
               const checkInterval = setInterval(() => {
                 if (typeof arcaptcha !== 'undefined' && typeof arcaptcha.execute === 'function') {
                   clearInterval(checkInterval);
@@ -329,7 +335,6 @@ class ArCaptchaController {
                 }
               }, 150);
 
-              // Automatically check the checkbox if enabled
               window.onload = function() {
                 if(${dataSize == DataSize.invisible}) {
                   const checkInterval = setInterval(() => {
@@ -338,7 +343,7 @@ class ArCaptchaController {
                       clearInterval(checkInterval);
                       post("execute-called");
                       
-                      // Remove loader display
+                      <!-- Remove loader display -->
                       const loader = document.getElementById('loader');
                       if (loader) {
                         loader.style.display = 'none';
@@ -362,13 +367,11 @@ class ArCaptchaController {
   ///
   Future<String?> showCaptcha({
     required BuildContext context,
-    CaptchaType mode = CaptchaType.dialog,
-    required Function(String error) onError,
-    required Function(String token) onSuccess,
+    required CaptchaParams params,
   }) async {
     String? token;
 
-    switch (mode) {
+    switch (params.mode) {
       case CaptchaType.screen:
         token = await _showAsScreen(context);
       case CaptchaType.dialog:
@@ -380,9 +383,9 @@ class ArCaptchaController {
     }
 
     if (token != null) {
-      onSuccess(token);
+      params.onSuccess(token);
     } else {
-      onError(onErrorMessage);
+      params.onError(onErrorMessage);
     }
 
     return token;
@@ -399,7 +402,11 @@ class ArCaptchaController {
           width: captchaWidth,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: ArCaptchaSectionHolder(htmlWidget: _htmlContent),
+            child: ArCaptchaSectionHolder(
+              htmlWidget: _htmlContent,
+              loadingText: loadingOverlayText,
+              showLoadingOverlay: needToShowLoadingOverlay,
+            ),
           ),
         ),
       ),
@@ -419,7 +426,11 @@ class ArCaptchaController {
             child: SizedBox.expand(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: ArCaptchaSectionHolder(htmlWidget: _htmlContent),
+                child: ArCaptchaSectionHolder(
+                  htmlWidget: _htmlContent,
+                  loadingText: loadingOverlayText,
+                  showLoadingOverlay: needToShowLoadingOverlay,
+                ),
               ),
             ),
           ),
@@ -437,10 +448,16 @@ class ArCaptchaController {
         height: captchaHeight,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: ArCaptchaSectionHolder(htmlWidget: _htmlContent),
+          child: ArCaptchaSectionHolder(
+            htmlWidget: _htmlContent,
+            loadingText: loadingOverlayText,
+            showLoadingOverlay: needToShowLoadingOverlay,
+          ),
         ),
       ),
-      actionOnCloseModal: (value) => completer.complete(value),
+      actionOnCloseModal: (value) {
+        completer.complete(value.toString());
+      },
     ).openBottomSheet(context: context);
 
     return await completer.future;
@@ -458,7 +475,11 @@ class ArCaptchaController {
           width: captchaWidth,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: ArCaptchaSectionHolder(htmlWidget: _htmlContent),
+            child: ArCaptchaSectionHolder(
+              htmlWidget: _htmlContent,
+              loadingText: loadingOverlayText,
+              showLoadingOverlay: needToShowLoadingOverlay,
+            ),
           ),
         ),
         barrierDismissible: dialogBarrierDismissible,

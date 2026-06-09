@@ -49,15 +49,17 @@ class _MyHomePageState extends State<MyHomePage> {
           onPressed: () {
             arCaptchaController.showCaptcha(
               context: context,
-              mode: CaptchaType.dialog,
-              onSuccess: (token) {
-                // The success function return captcha token key
-                debugPrint("Captcha success: $token");
-              },
-              onError: (error) {
-                // Return onErrorMessage that you gave in controller
-                debugPrint("Captcha failed: $error");
-              },
+              params: CaptchaParams(
+                mode: CaptchaType.dialog,
+                onSuccess: (token) {
+                  // The success function return captcha token key
+                  debugPrint("Captcha success: $token");
+                },
+                onError: (error) {
+                  // Return onErrorMessage that you gave in controller
+                  debugPrint("Captcha failed: $error");
+                },
+              ),
             );
           },
           child: const Text("Show Captcha"),

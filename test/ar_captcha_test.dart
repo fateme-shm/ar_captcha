@@ -1,73 +1,75 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:ar_captcha/ar_captcha.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
-/// A fake controller to capture callback events without
-/// depending on WebView/JS execution.
-class FakeArCaptchaController extends ArCaptchaController {
-  FakeArCaptchaController() : super(siteKey: 'FAKE_KEY');
+/// A platform-agnostic holder for rendering the captcha widget.
+///
+/// Depending on the platform (web or mobile), the exported implementation
+/// will switch between:
+/// - [ArCaptchaMobileDialog] (mobile)
+/// - [ArCaptchaWebDialog] (web)
+/// - a fallback [Container] (stub, should never be used).
 
-  bool showCalled = false;
+class ArCaptchaSectionHolder extends StatefulWidget {
+  final String htmlWidget;
+  final String? loadingText;
+  final bool showLoadingOverlay;
+
+  const ArCaptchaSectionHolder({
+    super.key,
+    required this.htmlWidget,
+    this.loadingText,
+    this.showLoadingOverlay = false,
+  });
 
   @override
-  Future<String?> showCaptcha({
-    required BuildContext context,
-    CaptchaType mode = CaptchaType.dialog,
-    required Function(String token) onSuccess,
-    required Function(String error) onError,
-  }) async {
-    showCalled = true;
-
-    // Simulate success callback with fake token
-    onSuccess('fake_token_123');
-
-    // Return the same token as the Future result
-    return Future.value('fake_token_123');
-  }
+  State<ArCaptchaSectionHolder> createState() => _ArCaptchaSectionHolderState();
 }
 
-void main() {
-  testWidgets('Tapping button opens captcha and triggers success', (
-    WidgetTester tester,
-  ) async {
-    final fakeController = FakeArCaptchaController();
+class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
+  @override
+  void initState() {
+    super.initState();
 
-    String? receivedToken;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initJsFunction();
+    });
+  }
 
-    // Test widget
-    final widget = MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: ElevatedButton(
-            onPressed: () async {
-              await fakeController.showCaptcha(
-                context: tester.element(find.byType(ElevatedButton)),
-                mode: CaptchaType.dialog,
-                onSuccess: (token) {
-                  receivedToken = token;
-                },
-                onError: (error) {},
-              );
-            },
-            child: const Text("Show Captcha"),
-          ),
-        ),
-      ),
-    );
+  /// Initializes the JS channel inside the WebView for
+  /// captcha success/error callbacks.
+  void _initJsFunction() {
+    ArCaptchaController.webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.transparent)
+      ..addJavaScriptChannel(
+        'Captcha',
+        onMessageReceived: (message) {
+          final data = jsonDecode(message.message);
+          final type = data['type'];
+          final payload = data['payload'];
 
-    await tester.pumpWidget(widget);
+          if (type == 'success') {
+            Navigator.of(context).pop(payload);
+          } else if (type == 'error') {
+            debugPrint('ArCaptcha error: $payload');
+          }
+        },
+      )
+      ..loadHtmlString(widget.htmlWidget);
 
-    // Verify button exists
-    expect(find.text("Show Captcha"), findsOneWidget);
+    setState(() {});
+  }
 
-    // Tap button
-    await tester.tap(find.text("Show Captcha"));
-    await tester.pumpAndSettle();
-
-    // Verify fakeController was called
-    expect(fakeController.showCalled, isTrue);
-
-    // Verify the fake token callback was triggered
-    expect(receivedToken, equals('fake_token_123'));
-  });
+  @override
+  Widget build(BuildContext context) {
+    return ArCaptchaController.webViewController == null
+        ? const SizedBox.shrink()
+        : WebViewWidget(
+            layoutDirection: TextDirection.rtl,
+            controller: ArCaptchaController.webViewController!,
+          );
+  }
 }

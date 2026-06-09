@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:developer';
-import 'dart:ui_web' as ui;
-import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
-import '/../res/common/js_interop_helper.dart';
+import 'package:web/web.dart' as web;
+
+import '../res/common/js_interop_helper.dart';
+import 'captcha_web_view_web.dart';
 
 /// A platform-agnostic holder for rendering the captcha widget.
 ///
@@ -15,28 +15,28 @@ import '/../res/common/js_interop_helper.dart';
 
 class ArCaptchaSectionHolder extends StatefulWidget {
   final String htmlWidget;
+  final bool showLoadingOverlay;
+  final String? loadingText;
 
-  const ArCaptchaSectionHolder({super.key, required this.htmlWidget});
+  const ArCaptchaSectionHolder({
+    super.key,
+    required this.htmlWidget,
+    this.showLoadingOverlay = false,
+    this.loadingText,
+  });
 
   @override
   State<ArCaptchaSectionHolder> createState() => _ArCaptchaSectionHolderState();
 }
 
 class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
-  String? viewId;
-
   /// Subscription for listening to JS `window.postMessage` events.
   StreamSubscription<web.MessageEvent>? _messageSubscription;
+  bool _isLoaded = false;
 
   @override
   void initState() {
     super.initState();
-
-    viewId = 'captcha-${DateTime.now().millisecondsSinceEpoch}';
-    CaptchaViewRegistry.register(viewId ?? '', widget.htmlWidget);
-
-    log('View id: $viewId');
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleCallBack();
     });
@@ -48,7 +48,7 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
 
     _messageSubscription = web.window.onMessage.listen((
       web.MessageEvent message,
-    ) async {
+    ) {
       final event = message.data;
 
       if (event != null) {
@@ -61,6 +61,7 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
           Navigator.of(context).pop(payload);
         } else if (type == 'error') {
           debugPrint('ArCaptcha error: $payload');
+          Navigator.of(context).pop(payload);
         }
       }
     });
@@ -74,32 +75,48 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
 
   @override
   Widget build(BuildContext context) {
-    return HtmlElementView(viewType: viewId ?? '');
-  }
-}
+    final captchaView = CaptchaWebViewWeb(
+      html: widget.htmlWidget,
+      onLoaded: () {
+        if (!mounted) return;
+        setState(() => _isLoaded = true);
+      },
+      onSuccess: (token) {
+        Navigator.of(context).pop(token);
+      },
+      onError: (error) {
+        debugPrint('ArCaptcha error: $error');
+        Navigator.of(context).pop(error);
+      },
+    );
 
-class CaptchaViewRegistry {
-  static final Set<String> _registered = {};
+    if (!widget.showLoadingOverlay) return captchaView;
 
-  static void register(String viewId, String html) {
-    if (_registered.contains(viewId)) return;
-    _registered.add(viewId);
-
-    ui.platformViewRegistry.registerViewFactory(viewId, (int id) {
-      final iframe = web.HTMLIFrameElement()
-        ..src = Uri.dataFromString(
-          html,
-          mimeType: 'text/html',
-        ).toString()
-        ..style.border = 'none'
-        ..style.width = '100%'
-        ..style.height = '100%'
-        ..setAttribute(
-          'sandbox',
-          'allow-scripts allow-same-origin allow-forms allow-popups',
-        );
-
-      return iframe;
-    });
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(child: captchaView),
+        if (!_isLoaded)
+          Positioned.fill(
+            child: ColoredBox(
+              color: Theme.of(context).colorScheme.surface,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.loadingText ?? 'Loading captcha ...',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }

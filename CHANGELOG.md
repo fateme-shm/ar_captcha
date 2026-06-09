@@ -67,3 +67,31 @@
 
 - Added `WASM` for web
 - Fix reported bug
+
+# 1.2.0
+
+- Fix problem in safari web
+- change arCaptcha Param holder section
+- Previews usage
+
+```
+ .showCaptcha(
+     context: context,
+     mode: CaptchaType.dialog,
+     onSuccess: (token) {},
+     onError: (error) {},
+ )
+```
+
+- Now:
+
+```
+ .showCaptcha(
+     context: context,
+     params: CaptchaParams(
+       mode: CaptchaType.dialog,
+       onSuccess: (token) {},
+       onError: (error) {},
+     ),
+ )
+```

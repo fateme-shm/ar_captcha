@@ -1,3 +1,4 @@
+// Flutter imports:
 import 'package:flutter/widgets.dart';
 
 /// Fallback stub for unsupported platforms.
@@ -5,8 +6,16 @@ import 'package:flutter/widgets.dart';
 /// This is a placeholder and should never actually be used in production.
 class ArCaptchaSectionHolder extends StatelessWidget {
   final String htmlWidget;
+  final String? loadingText;
 
-  const ArCaptchaSectionHolder({super.key, required this.htmlWidget});
+  final bool showLoadingOverlay;
+
+  const ArCaptchaSectionHolder({
+    super.key,
+    required this.htmlWidget,
+    this.showLoadingOverlay = true,
+    this.loadingText = 'Loading captcha ...',
+  });
 
   @override
   Widget build(BuildContext context) {
