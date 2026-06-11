@@ -132,3 +132,11 @@
 - Fixed Safari zero-height platform view (`rect=500x0`) by applying explicit pixel dimensions to `HtmlElementView` and `flt-platform-view`.
 - Pass `captchaHeight` / `captchaWidth` through to the web captcha view for reliable Safari layout.
 - Use `LayoutBuilder` with fixed `SizedBox` instead of `SizedBox.expand` on web.
+
+# 1.2.8
+- Use direct DOM injection for **all** Flutter web browsers (not only Safari).
+- Removed nested iframe (`srcdoc`) path — it loads but often fails to paint inside `flt-platform-view` on Firefox and other browsers.
+- Raised platform-view `z-index` and applied visibility fixes universally on web.
+- Fixed captcha never mounting (`children=0`) by retrying DOM injection until the platform view is connected to the document.
+- Scripts inside the captcha container only run after connection; mount is now retried at 0/16/50/100/150/300/600/1000ms.
+- Mount success is tracked by `childElementCount` instead of a one-shot boolean flag.

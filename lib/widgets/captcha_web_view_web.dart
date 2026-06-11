@@ -1,6 +1,5 @@
 // Dart imports:
 import 'dart:async';
-import 'dart:js_interop';
 import 'dart:ui_web' as ui;
 
 // Flutter imports:
@@ -11,9 +10,11 @@ import 'package:web/web.dart' as web;
 
 // Project imports:
 import '../res/common/js_interop_helper.dart';
-import '../res/utils/web_browser_info.dart';
 import 'safari_captcha_dom_mount.dart';
 
+/// Renders ArCaptcha on Flutter web via direct DOM injection into
+/// [HtmlElementView]. Nested iframes (`srcdoc` / blob) load correctly but
+/// often fail to paint inside `flt-platform-view` across browsers.
 class CaptchaWebViewWeb extends StatefulWidget {
   final String html;
   final void Function(String token) onSuccess;
@@ -41,14 +42,8 @@ class CaptchaWebViewWeb extends StatefulWidget {
 class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
   StreamSubscription? _messageSubscription;
   bool _didNotifyLoaded = false;
-  bool _contentMounted = false;
   late final String _viewId;
-  late final bool _useSafariDirectDom;
-  web.HTMLDivElement? _safariContainer;
-  web.HTMLIFrameElement? _iframe;
-  JSFunction? _loadListener;
-  JSFunction? _errorListener;
-  String? _blobUrl;
+  late final web.HTMLDivElement _container;
   double? _layoutWidth;
   double? _layoutHeight;
 
@@ -59,29 +54,20 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
     }
   }
 
+  bool get _hasMountedContent => _container.childElementCount > 0;
+
   @override
   void initState() {
     super.initState();
     _viewId = 'captcha-${DateTime.now().microsecondsSinceEpoch}';
-    _useSafariDirectDom = isSafariWeb;
-    _log(
-      'init viewId=$_viewId useSafariDirectDom=$_useSafariDirectDom '
-      'isIOSSafariWeb=$isIOSSafariWeb htmlLength=${widget.html.length}',
-    );
+    _container = _buildContainer();
 
-    if (_useSafariDirectDom) {
-      _safariContainer = _buildSafariContainer();
-    } else {
-      _iframe = _buildIframe();
-    }
+    _log('init viewId=$_viewId htmlLength=${widget.html.length}');
 
     ui.platformViewRegistry.registerViewFactory(_viewId, (int id) {
-      _log(
-        'view factory invoked id=$id mode=${_useSafariDirectDom ? "direct-dom" : "iframe"} '
-        'connected=$_isConnected',
-      );
-      _mountContent();
-      return _useSafariDirectDom ? _safariContainer! : _iframe!;
+      _log('view factory invoked id=$id connected=${_container.isConnected}');
+      _ensureContentMounted();
+      return _container;
     });
 
     _messageSubscription = web.window.onMessage.listen((event) {
@@ -117,10 +103,8 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _mountContent();
-      if (_useSafariDirectDom) {
-        _scheduleSafariVisibilityFixes();
-      }
+      _ensureContentMounted();
+      _scheduleMountAndVisibilityFixes();
       _logElementState('post-frame');
     });
   }
@@ -134,72 +118,46 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
         'HTML updated oldLength=${oldWidget.html.length} '
         'newLength=${widget.html.length}',
       );
-      _contentMounted = false;
       _didNotifyLoaded = false;
       _mountContent(force: true);
     }
   }
 
-  web.HTMLDivElement _buildSafariContainer() {
+  web.HTMLDivElement _buildContainer() {
     final container = web.HTMLDivElement();
-    _applySafariElementStyles(container);
+    _applyContainerStyles(container);
     return container;
   }
 
-  web.HTMLIFrameElement _buildIframe() {
-    final iframe = web.HTMLIFrameElement()
-      ..style.border = 'none'
-      ..style.width = '100%'
-      ..style.height = '100%'
-      ..style.display = 'block';
-
-    void handleLoad(web.Event _) {
-      final src = iframe.src;
-      if (src.isEmpty || src == 'about:blank') {
-        _logElementState('ignored empty iframe load');
-        return;
-      }
-
-      _logElementState('iframe load');
-      _notifyLoadedOnce();
-    }
-
-    void handleError(web.Event _) {
-      _logElementState('iframe ERROR');
-    }
-
-    _loadListener = handleLoad.toJS;
-    _errorListener = handleError.toJS;
-    iframe.addEventListener('load', _loadListener!);
-    iframe.addEventListener('error', _errorListener!);
-
-    return iframe;
+  /// Scripts only execute once the platform-view element is connected to the
+  /// document, so keep retrying until children are present.
+  void _ensureContentMounted() {
+    if (_hasMountedContent) return;
+    _mountContent();
   }
 
   void _mountContent({bool force = false}) {
-    if (_contentMounted && !force) return;
+    if (_hasMountedContent && !force) return;
 
-    if (_useSafariDirectDom) {
-      final container = _safariContainer;
-      if (container == null || !container.isConnected) {
-        _log('deferring Safari DOM mount until container is connected');
-        return;
-      }
-
-      SafariCaptchaDomMount.mount(
-        container: container,
-        html: widget.html,
-        viewId: _viewId,
+    if (!_container.isConnected) {
+      _log(
+        'deferring DOM mount until connected '
+        '(children=${_container.childElementCount})',
       );
-      _contentMounted = true;
-      _applyExplicitSizeIfKnown();
-      _fixSafariPlatformViewVisibility();
-      _log('Safari direct DOM mount complete');
       return;
     }
 
-    _contentMounted = true;
-    _setIframeContent(widget.html);
+    SafariCaptchaDomMount.mount(
+      container: _container,
+      html: widget.html,
+      viewId: _viewId,
+    );
+    _applyExplicitSizeIfKnown();
+    _fixPlatformViewVisibility();
+    _log(
+      'direct DOM mount complete children=${_container.childElementCount} '
+      'connected=${_container.isConnected}',
+    );
   }
 
   void _notifyLoadedOnce() {
@@ -208,11 +166,18 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
     widget.onLoaded?.call();
   }
 
-  bool get _isConnected {
-    if (_useSafariDirectDom) {
-      return _safariContainer?.isConnected ?? false;
-    }
-    return _iframe?.isConnected ?? false;
+  void _applyContainerStyles(web.HTMLDivElement element) {
+    element.style.position = 'absolute';
+    element.style.top = '0';
+    element.style.left = '0';
+    element.style.opacity = '1';
+    element.style.visibility = 'visible';
+    element.style.setProperty('transform', 'translateZ(0)');
+    element.style.setProperty('-webkit-transform', 'translateZ(0)');
+    element.style.setProperty('will-change', 'transform');
+    element.style.setProperty('pointer-events', 'auto');
+    element.style.setProperty('z-index', '1');
+    element.style.setProperty('overflow', 'auto');
   }
 
   void _applyExplicitSize(double width, double height) {
@@ -222,31 +187,21 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
     final widthPx = '${width.round()}px';
     final heightPx = '${height.round()}px';
 
-    final safariContainer = _safariContainer;
-    if (safariContainer != null && safariContainer.isConnected) {
-      safariContainer.style.width = widthPx;
-      safariContainer.style.height = heightPx;
-      safariContainer.style.minHeight = heightPx;
-    }
+    _container.style.width = widthPx;
+    _container.style.height = heightPx;
+    _container.style.minHeight = heightPx;
 
-    final iframe = _iframe;
-    if (iframe != null && iframe.isConnected) {
-      iframe.style.width = widthPx;
-      iframe.style.height = heightPx;
-      iframe.style.minHeight = heightPx;
-    }
-
-    final root = safariContainer ?? iframe;
-    if (root != null && root.isConnected) {
-      var parent = root.parentElement;
+    if (_container.isConnected) {
+      var parent = _container.parentElement;
       while (parent != null) {
         if (parent.tagName.toUpperCase() == 'FLT-PLATFORM-VIEW') {
+          parent.removeAttribute('aria-hidden');
           parent.setAttribute(
             'style',
             'width:$widthPx;height:$heightPx;min-height:$heightPx;'
             'opacity:1;visibility:visible;display:block;overflow:visible;'
-            'position:relative;z-index:1;transform:translateZ(0);'
-            '-webkit-transform:translateZ(0);',
+            'position:relative;z-index:2147483647;transform:translateZ(0);'
+            '-webkit-transform:translateZ(0);pointer-events:auto;',
           );
           break;
         }
@@ -265,143 +220,73 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
     _applyExplicitSize(width, height);
   }
 
-  void _applySafariElementStyles(web.HTMLDivElement element) {
-    element.style.position = 'absolute';
-    element.style.top = '0';
-    element.style.left = '0';
-    element.style.opacity = '1';
-    element.style.visibility = 'visible';
-    element.style.setProperty('transform', 'translateZ(0)');
-    element.style.setProperty('-webkit-transform', 'translateZ(0)');
-    element.style.setProperty('will-change', 'transform');
-    element.style.setProperty('pointer-events', 'auto');
-    element.style.setProperty('z-index', '1');
-  }
+  void _fixPlatformViewVisibility() {
+    if (!_container.isConnected) return;
 
-  void _fixSafariPlatformViewVisibility() {
-    final container = _safariContainer;
-    if (!_useSafariDirectDom || container == null || !container.isConnected) {
-      return;
-    }
-
-    var parent = container.parentElement;
+    var parent = _container.parentElement;
     while (parent != null) {
       final tag = parent.tagName.toUpperCase();
       if (tag == 'FLT-PLATFORM-VIEW' ||
           tag == 'FLUTTER-VIEW' ||
           tag == 'FLT-GLASS-PANE' ||
           tag == 'FLT-SCENE-HOST' ||
-          tag == 'FLT-SCENE') {
+          tag == 'FLT-SCENE' ||
+          tag == 'FLT-SEMANTICS-PLACEHOLDER') {
         parent.removeAttribute('aria-hidden');
         parent.setAttribute(
           'style',
+          '${parent.getAttribute('style') ?? ''}'
           'opacity:1;visibility:visible;display:block;overflow:visible;'
-          'position:relative;z-index:1;transform:translateZ(0);'
-          '-webkit-transform:translateZ(0);',
+          'position:relative;z-index:2147483647;transform:translateZ(0);'
+          '-webkit-transform:translateZ(0);pointer-events:auto;',
         );
       }
       parent = parent.parentElement;
     }
 
     _applyExplicitSizeIfKnown();
-    _applySafariElementStyles(container);
-    _log('Safari platform view visibility fix applied');
+    _applyContainerStyles(_container);
+    _log('platform view visibility fix applied');
   }
 
-  void _forceSafariRepaint() {
-    final container = _safariContainer;
-    if (!_useSafariDirectDom || container == null || !container.isConnected) {
-      return;
-    }
+  void _forceRepaint() {
+    if (!_container.isConnected) return;
 
-    container.style.setProperty('transform', 'translateZ(0) scale(1.001)');
-    container.getBoundingClientRect();
-    container.style.setProperty('transform', 'translateZ(0)');
+    _container.style.setProperty('transform', 'translateZ(0) scale(1.001)');
+    _container.getBoundingClientRect();
+    _container.style.setProperty('transform', 'translateZ(0)');
   }
 
-  void _scheduleSafariVisibilityFixes() {
-    if (!_useSafariDirectDom) return;
-
-    _fixSafariPlatformViewVisibility();
-    _forceSafariRepaint();
-
-    for (final delayMs in const [50, 150, 300, 600]) {
+  void _scheduleMountAndVisibilityFixes() {
+    for (final delayMs in const [0, 16, 50, 100, 150, 300, 600, 1000]) {
       Future<void>.delayed(Duration(milliseconds: delayMs), () {
         if (!mounted) return;
+        _ensureContentMounted();
         _applyExplicitSizeIfKnown();
-        _fixSafariPlatformViewVisibility();
-        _forceSafariRepaint();
-        _logElementState('visibility-retry-${delayMs}ms');
+        _fixPlatformViewVisibility();
+        _forceRepaint();
+        _logElementState('retry-${delayMs}ms');
       });
     }
   }
 
   void _logElementState(String label) {
-    if (_useSafariDirectDom) {
-      final container = _safariContainer;
-      if (container == null) return;
-      final rect = container.getBoundingClientRect();
-      _log(
-        '$label connected=${container.isConnected} '
-        'rect=${rect.width}x${rect.height} mode=direct-dom '
-        'children=${container.childElementCount}',
-      );
-      return;
-    }
-
-    final iframe = _iframe;
-    if (iframe == null) return;
-    final rect = iframe.getBoundingClientRect();
+    final rect = _container.getBoundingClientRect();
     _log(
-      '$label connected=${iframe.isConnected} '
-      'rect=${rect.width}x${rect.height} mode=iframe '
-      'src=${iframe.src.isEmpty ? "(empty)" : iframe.src}',
+      '$label connected=${_container.isConnected} '
+      'rect=${rect.width}x${rect.height} children=${_container.childElementCount}',
     );
-  }
-
-  void _setIframeContent(String html) {
-    final iframe = _iframe;
-    if (iframe == null) return;
-    _revokeBlobUrl();
-    iframe.removeAttribute('srcdoc');
-    iframe.src = '';
-    iframe.srcdoc = html.toJS;
-    _log('iframe content assigned with srcdoc');
-  }
-
-  void _revokeBlobUrl() {
-    final blobUrl = _blobUrl;
-    if (blobUrl == null) return;
-
-    _log('revoking previous Blob URL');
-    web.URL.revokeObjectURL(blobUrl);
-    _blobUrl = null;
   }
 
   @override
   void dispose() {
-    _log('dispose connected=$_isConnected');
+    _log('dispose connected=${_container.isConnected}');
 
-    final iframe = _iframe;
-    if (iframe != null) {
-      iframe.src = 'about:blank';
-      if (_loadListener != null) {
-        iframe.removeEventListener('load', _loadListener!);
-      }
-      if (_errorListener != null) {
-        iframe.removeEventListener('error', _errorListener!);
-      }
-    }
-
-    final container = _safariContainer;
-    if (container != null) {
-      while (container.firstChild != null) {
-        container.removeChild(container.firstChild!);
-      }
+    while (_container.firstChild != null) {
+      _container.removeChild(_container.firstChild!);
     }
 
     _messageSubscription?.cancel();
-    _revokeBlobUrl();
     super.dispose();
   }
 
@@ -421,9 +306,8 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _applyExplicitSize(width, height);
-          if (_useSafariDirectDom) {
-            _fixSafariPlatformViewVisibility();
-          }
+          _ensureContentMounted();
+          _fixPlatformViewVisibility();
         });
 
         return SizedBox(
