@@ -121,3 +121,9 @@
 - Removed `aria-hidden` and applied Safari compositing fixes on `flt-platform-view` ancestors.
 - Disabled responsive dialog animations on Safari to avoid platform view layer bugs during transitions.
 - Hide the Flutter loading overlay as soon as captcha content reports ready.
+
+# 1.2.6
+- Fixed Safari blank captcha by mounting widget markup directly into the platform-view `div` instead of a nested iframe.
+- Safari now injects ArCaptcha scripts and DOM into `HtmlElementView` to avoid WebKit compositor bugs with blob iframes.
+- Namespaced captcha callbacks per view instance to avoid collisions on the host page.
+- Only fire iframe `onLoad` after real content is assigned (ignore empty initial loads).

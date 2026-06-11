@@ -12,6 +12,7 @@ import 'package:web/web.dart' as web;
 // Project imports:
 import '../res/common/js_interop_helper.dart';
 import '../res/utils/web_browser_info.dart';
+import 'safari_captcha_dom_mount.dart';
 
 class CaptchaWebViewWeb extends StatefulWidget {
   final String html;
@@ -36,18 +37,19 @@ class CaptchaWebViewWeb extends StatefulWidget {
 class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
   StreamSubscription? _messageSubscription;
   bool _didNotifyLoaded = false;
-  bool _contentAssigned = false;
+  bool _contentMounted = false;
   late final String _viewId;
-  late final web.HTMLIFrameElement _iframe;
+  late final bool _useSafariDirectDom;
+  web.HTMLDivElement? _safariContainer;
+  web.HTMLIFrameElement? _iframe;
   JSFunction? _loadListener;
   JSFunction? _errorListener;
   String? _blobUrl;
-  String? _pendingHtml;
 
   void _log(String message) {
     if (widget.enableDebugLogging) {
       // ignore: avoid_print
-      print('[ArCaptcha][Iframe] $message');
+      print('[ArCaptcha][WebView] $message');
     }
   }
 
@@ -55,30 +57,43 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
   void initState() {
     super.initState();
     _viewId = 'captcha-${DateTime.now().microsecondsSinceEpoch}';
-    _pendingHtml = widget.html;
+    _useSafariDirectDom = isSafariWeb;
     _log(
-      'init viewId=$_viewId isSafariWeb=$isSafariWeb '
+      'init viewId=$_viewId useSafariDirectDom=$_useSafariDirectDom '
       'isIOSSafariWeb=$isIOSSafariWeb htmlLength=${widget.html.length}',
     );
 
-    _iframe = _buildIframe();
-    _applySafariIframeStyles(_iframe);
+    if (_useSafariDirectDom) {
+      _safariContainer = _buildSafariContainer();
+    } else {
+      _iframe = _buildIframe();
+    }
 
     ui.platformViewRegistry.registerViewFactory(_viewId, (int id) {
-      _log('view factory invoked id=$id connected=${_iframe.isConnected}');
-      _assignContentWhenAttached();
-      return _iframe;
+      _log(
+        'view factory invoked id=$id mode=${_useSafariDirectDom ? "direct-dom" : "iframe"} '
+        'connected=$_isConnected',
+      );
+      _mountContent();
+      return _useSafariDirectDom ? _safariContainer! : _iframe!;
     });
 
     _messageSubscription = web.window.onMessage.listen((event) {
       final data = event.data;
-
       if (data == null) return;
 
       try {
         final message = convertCaptchaWebPostMessagesFromJs(data);
         final type = message['type'];
         final payload = message['payload'];
+
+        if (type == 'state') {
+          if (payload == 'arcaptcha-ready' ||
+              payload == 'loader-hidden' ||
+              payload == 'window-loaded') {
+            _notifyLoadedOnce();
+          }
+        }
 
         if (type == 'success') {
           if (payload != null) {
@@ -96,9 +111,11 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _assignContentWhenAttached();
-      _scheduleSafariVisibilityFixes();
-      _logIframeState('post-frame');
+      _mountContent();
+      if (_useSafariDirectDom) {
+        _scheduleSafariVisibilityFixes();
+      }
+      _logElementState('post-frame');
     });
   }
 
@@ -111,27 +128,16 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
         'HTML updated oldLength=${oldWidget.html.length} '
         'newLength=${widget.html.length}',
       );
-      _pendingHtml = widget.html;
-      _contentAssigned = false;
+      _contentMounted = false;
       _didNotifyLoaded = false;
-      _assignContentWhenAttached(force: true);
+      _mountContent(force: true);
     }
   }
 
-  /// Safari must receive iframe content only after Flutter attaches the element.
-  void _assignContentWhenAttached({bool force = false}) {
-    final html = _pendingHtml;
-    if (html == null || html.isEmpty) return;
-    if (_contentAssigned && !force) return;
-
-    if (!_iframe.isConnected) {
-      _log('deferring content assignment until iframe is connected');
-      return;
-    }
-
-    _contentAssigned = true;
-    _setIframeContent(html);
-    _fixSafariPlatformViewVisibility();
+  web.HTMLDivElement _buildSafariContainer() {
+    final container = web.HTMLDivElement();
+    _applySafariElementStyles(container);
+    return container;
   }
 
   web.HTMLIFrameElement _buildIframe() {
@@ -142,22 +148,18 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
       ..style.display = 'block';
 
     void handleLoad(web.Event _) {
-      _logIframeState('load event');
-
-      if (!_didNotifyLoaded && mounted) {
-        _didNotifyLoaded = true;
-        widget.onLoaded?.call();
+      final src = iframe.src;
+      if (src.isEmpty || src == 'about:blank') {
+        _logElementState('ignored empty iframe load');
+        return;
       }
 
-      if (_blobUrl != null) {
-        _log('Blob URL retained until iframe disposal');
-      }
-
-      _scheduleSafariVisibilityFixes();
+      _logElementState('iframe load');
+      _notifyLoadedOnce();
     }
 
     void handleError(web.Event _) {
-      _logIframeState('ERROR event');
+      _logElementState('iframe ERROR');
     }
 
     _loadListener = handleLoad.toJS;
@@ -168,54 +170,101 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
     return iframe;
   }
 
-  void _applySafariIframeStyles(web.HTMLIFrameElement iframe) {
-    if (!isSafariWeb) return;
+  void _mountContent({bool force = false}) {
+    if (_contentMounted && !force) return;
 
-    iframe.style.position = 'absolute';
-    iframe.style.top = '0';
-    iframe.style.left = '0';
-    iframe.style.opacity = '1';
-    iframe.style.visibility = 'visible';
-    iframe.style.setProperty('transform', 'translateZ(0)');
-    iframe.style.setProperty('-webkit-transform', 'translateZ(0)');
-    iframe.style.setProperty('will-change', 'transform');
-    iframe.style.setProperty('pointer-events', 'auto');
+    if (_useSafariDirectDom) {
+      final container = _safariContainer;
+      if (container == null || !container.isConnected) {
+        _log('deferring Safari DOM mount until container is connected');
+        return;
+      }
+
+      SafariCaptchaDomMount.mount(
+        container: container,
+        html: widget.html,
+        viewId: _viewId,
+      );
+      _contentMounted = true;
+      _fixSafariPlatformViewVisibility();
+      _log('Safari direct DOM mount complete');
+      return;
+    }
+
+    _contentMounted = true;
+    _setIframeContent(widget.html);
   }
 
-  /// Flutter marks platform views `aria-hidden="true"`; Safari can hide them.
-  void _fixSafariPlatformViewVisibility() {
-    if (!isSafariWeb || !_iframe.isConnected) return;
+  void _notifyLoadedOnce() {
+    if (_didNotifyLoaded || !mounted) return;
+    _didNotifyLoaded = true;
+    widget.onLoaded?.call();
+  }
 
-    var parent = _iframe.parentElement;
+  bool get _isConnected {
+    if (_useSafariDirectDom) {
+      return _safariContainer?.isConnected ?? false;
+    }
+    return _iframe?.isConnected ?? false;
+  }
+
+  void _applySafariElementStyles(web.HTMLDivElement element) {
+    element.style.position = 'absolute';
+    element.style.top = '0';
+    element.style.left = '0';
+    element.style.width = '100%';
+    element.style.height = '100%';
+    element.style.opacity = '1';
+    element.style.visibility = 'visible';
+    element.style.setProperty('transform', 'translateZ(0)');
+    element.style.setProperty('-webkit-transform', 'translateZ(0)');
+    element.style.setProperty('will-change', 'transform');
+    element.style.setProperty('pointer-events', 'auto');
+    element.style.setProperty('z-index', '1');
+  }
+
+  void _fixSafariPlatformViewVisibility() {
+    final container = _safariContainer;
+    if (!_useSafariDirectDom || container == null || !container.isConnected) {
+      return;
+    }
+
+    var parent = container.parentElement;
     while (parent != null) {
       final tag = parent.tagName.toUpperCase();
       if (tag == 'FLT-PLATFORM-VIEW' ||
           tag == 'FLUTTER-VIEW' ||
-          tag == 'FLT-GLASS-PANE') {
+          tag == 'FLT-GLASS-PANE' ||
+          tag == 'FLT-SCENE-HOST' ||
+          tag == 'FLT-SCENE') {
         parent.removeAttribute('aria-hidden');
         parent.setAttribute(
           'style',
-          'opacity:1;visibility:visible;display:block;overflow:visible',
+          'opacity:1;visibility:visible;display:block;overflow:visible;'
+          'position:relative;z-index:1;transform:translateZ(0);'
+          '-webkit-transform:translateZ(0);',
         );
       }
       parent = parent.parentElement;
     }
 
-    _applySafariIframeStyles(_iframe);
+    _applySafariElementStyles(container);
     _log('Safari platform view visibility fix applied');
   }
 
   void _forceSafariRepaint() {
-    if (!isSafariWeb || !_iframe.isConnected) return;
+    final container = _safariContainer;
+    if (!_useSafariDirectDom || container == null || !container.isConnected) {
+      return;
+    }
 
-    _iframe.style.setProperty('transform', 'translateZ(0) scale(1.001)');
-    // Trigger layout read.
-    _iframe.getBoundingClientRect();
-    _iframe.style.setProperty('transform', 'translateZ(0)');
+    container.style.setProperty('transform', 'translateZ(0) scale(1.001)');
+    container.getBoundingClientRect();
+    container.style.setProperty('transform', 'translateZ(0)');
   }
 
   void _scheduleSafariVisibilityFixes() {
-    if (!isSafariWeb) return;
+    if (!_useSafariDirectDom) return;
 
     _fixSafariPlatformViewVisibility();
     _forceSafariRepaint();
@@ -223,52 +272,50 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
     for (final delayMs in const [50, 150, 300, 600]) {
       Future<void>.delayed(Duration(milliseconds: delayMs), () {
         if (!mounted) return;
-        _assignContentWhenAttached();
+        _mountContent();
         _fixSafariPlatformViewVisibility();
         _forceSafariRepaint();
-        _logIframeState('visibility-retry-${delayMs}ms');
+        _logElementState('visibility-retry-${delayMs}ms');
       });
     }
   }
 
-  void _logIframeState(String label) {
-    final rect = _iframe.getBoundingClientRect();
-    _log(
-      '$label connected=${_iframe.isConnected} '
-      'rect=${rect.width}x${rect.height} '
-      'src=${_iframe.src.isEmpty ? "(empty)" : _iframe.src} '
-      'hasSrcdoc=${_iframe.getAttribute("srcdoc")?.isNotEmpty == true}',
-    );
-  }
-
-  /// Safari blocks external script loading inside `srcdoc` iframes.
-  /// Use a Blob URL so the captcha widget can fetch arcaptcha scripts.
-  void _setIframeContent(String html) {
-    _revokeBlobUrl();
-    _iframe.removeAttribute('srcdoc');
-
-    if (isSafariWeb) {
-      final blob = web.Blob(
-        <JSString>[html.toJS].toJS,
-        web.BlobPropertyBag(type: 'text/html'),
+  void _logElementState(String label) {
+    if (_useSafariDirectDom) {
+      final container = _safariContainer;
+      if (container == null) return;
+      final rect = container.getBoundingClientRect();
+      _log(
+        '$label connected=${container.isConnected} '
+        'rect=${rect.width}x${rect.height} mode=direct-dom '
+        'children=${container.childElementCount}',
       );
-      final blobUrl = web.URL.createObjectURL(blob);
-      _blobUrl = blobUrl;
-      _iframe.src = blobUrl;
-      _log('content assigned with Blob URL for Safari');
       return;
     }
 
-    _iframe.src = '';
-    _iframe.srcdoc = html.toJS;
-    _log('content assigned with srcdoc');
+    final iframe = _iframe;
+    if (iframe == null) return;
+    final rect = iframe.getBoundingClientRect();
+    _log(
+      '$label connected=${iframe.isConnected} '
+      'rect=${rect.width}x${rect.height} mode=iframe '
+      'src=${iframe.src.isEmpty ? "(empty)" : iframe.src}',
+    );
+  }
+
+  void _setIframeContent(String html) {
+    final iframe = _iframe;
+    if (iframe == null) return;
+    _revokeBlobUrl();
+    iframe.removeAttribute('srcdoc');
+    iframe.src = '';
+    iframe.srcdoc = html.toJS;
+    _log('iframe content assigned with srcdoc');
   }
 
   void _revokeBlobUrl() {
     final blobUrl = _blobUrl;
-    if (blobUrl == null) {
-      return;
-    }
+    if (blobUrl == null) return;
 
     _log('revoking previous Blob URL');
     web.URL.revokeObjectURL(blobUrl);
@@ -277,14 +324,24 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
 
   @override
   void dispose() {
-    _log('dispose connected=${_iframe.isConnected} src=${_iframe.src}');
-    _iframe.src = 'about:blank';
+    _log('dispose connected=$_isConnected');
 
-    if (_loadListener != null) {
-      _iframe.removeEventListener('load', _loadListener!);
+    final iframe = _iframe;
+    if (iframe != null) {
+      iframe.src = 'about:blank';
+      if (_loadListener != null) {
+        iframe.removeEventListener('load', _loadListener!);
+      }
+      if (_errorListener != null) {
+        iframe.removeEventListener('error', _errorListener!);
+      }
     }
-    if (_errorListener != null) {
-      _iframe.removeEventListener('error', _errorListener!);
+
+    final container = _safariContainer;
+    if (container != null) {
+      while (container.firstChild != null) {
+        container.removeChild(container.firstChild!);
+      }
     }
 
     _messageSubscription?.cancel();
