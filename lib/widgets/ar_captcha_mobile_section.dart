@@ -18,6 +18,8 @@ class ArCaptchaSectionHolder extends StatefulWidget {
   final bool showLoadingOverlay;
   final String? loadingText;
   final bool enableDebugLogging;
+  final double captchaHeight;
+  final double captchaWidth;
 
   const ArCaptchaSectionHolder({
     super.key,
@@ -25,6 +27,8 @@ class ArCaptchaSectionHolder extends StatefulWidget {
     this.showLoadingOverlay = false,
     this.loadingText,
     required this.enableDebugLogging,
+    this.captchaHeight = 550,
+    this.captchaWidth = 550,
   });
 
   @override

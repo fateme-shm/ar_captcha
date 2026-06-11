@@ -127,3 +127,8 @@
 - Safari now injects ArCaptcha scripts and DOM into `HtmlElementView` to avoid WebKit compositor bugs with blob iframes.
 - Namespaced captcha callbacks per view instance to avoid collisions on the host page.
 - Only fire iframe `onLoad` after real content is assigned (ignore empty initial loads).
+
+# 1.2.7
+- Fixed Safari zero-height platform view (`rect=500x0`) by applying explicit pixel dimensions to `HtmlElementView` and `flt-platform-view`.
+- Pass `captchaHeight` / `captchaWidth` through to the web captcha view for reliable Safari layout.
+- Use `LayoutBuilder` with fixed `SizedBox` instead of `SizedBox.expand` on web.

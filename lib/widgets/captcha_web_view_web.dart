@@ -20,6 +20,8 @@ class CaptchaWebViewWeb extends StatefulWidget {
   final void Function(String error) onError;
   final VoidCallback? onLoaded;
   final bool enableDebugLogging;
+  final double captchaHeight;
+  final double captchaWidth;
 
   const CaptchaWebViewWeb({
     super.key,
@@ -28,6 +30,8 @@ class CaptchaWebViewWeb extends StatefulWidget {
     required this.onError,
     this.onLoaded,
     required this.enableDebugLogging,
+    this.captchaHeight = 550,
+    this.captchaWidth = 550,
   });
 
   @override
@@ -45,6 +49,8 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
   JSFunction? _loadListener;
   JSFunction? _errorListener;
   String? _blobUrl;
+  double? _layoutWidth;
+  double? _layoutHeight;
 
   void _log(String message) {
     if (widget.enableDebugLogging) {
@@ -186,6 +192,7 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
         viewId: _viewId,
       );
       _contentMounted = true;
+      _applyExplicitSizeIfKnown();
       _fixSafariPlatformViewVisibility();
       _log('Safari direct DOM mount complete');
       return;
@@ -208,12 +215,60 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
     return _iframe?.isConnected ?? false;
   }
 
+  void _applyExplicitSize(double width, double height) {
+    _layoutWidth = width;
+    _layoutHeight = height;
+
+    final widthPx = '${width.round()}px';
+    final heightPx = '${height.round()}px';
+
+    final safariContainer = _safariContainer;
+    if (safariContainer != null && safariContainer.isConnected) {
+      safariContainer.style.width = widthPx;
+      safariContainer.style.height = heightPx;
+      safariContainer.style.minHeight = heightPx;
+    }
+
+    final iframe = _iframe;
+    if (iframe != null && iframe.isConnected) {
+      iframe.style.width = widthPx;
+      iframe.style.height = heightPx;
+      iframe.style.minHeight = heightPx;
+    }
+
+    final root = safariContainer ?? iframe;
+    if (root != null && root.isConnected) {
+      var parent = root.parentElement;
+      while (parent != null) {
+        if (parent.tagName.toUpperCase() == 'FLT-PLATFORM-VIEW') {
+          parent.setAttribute(
+            'style',
+            'width:$widthPx;height:$heightPx;min-height:$heightPx;'
+            'opacity:1;visibility:visible;display:block;overflow:visible;'
+            'position:relative;z-index:1;transform:translateZ(0);'
+            '-webkit-transform:translateZ(0);',
+          );
+          break;
+        }
+        parent = parent.parentElement;
+      }
+    }
+
+    _log('explicit size applied ${width.round()}x${height.round()}');
+  }
+
+  void _applyExplicitSizeIfKnown() {
+    final width = _layoutWidth;
+    final height = _layoutHeight;
+    if (width == null || height == null) return;
+    if (width <= 0 || height <= 0) return;
+    _applyExplicitSize(width, height);
+  }
+
   void _applySafariElementStyles(web.HTMLDivElement element) {
     element.style.position = 'absolute';
     element.style.top = '0';
     element.style.left = '0';
-    element.style.width = '100%';
-    element.style.height = '100%';
     element.style.opacity = '1';
     element.style.visibility = 'visible';
     element.style.setProperty('transform', 'translateZ(0)');
@@ -248,6 +303,7 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
       parent = parent.parentElement;
     }
 
+    _applyExplicitSizeIfKnown();
     _applySafariElementStyles(container);
     _log('Safari platform view visibility fix applied');
   }
@@ -272,7 +328,7 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
     for (final delayMs in const [50, 150, 300, 600]) {
       Future<void>.delayed(Duration(milliseconds: delayMs), () {
         if (!mounted) return;
-        _mountContent();
+        _applyExplicitSizeIfKnown();
         _fixSafariPlatformViewVisibility();
         _forceSafariRepaint();
         _logElementState('visibility-retry-${delayMs}ms');
@@ -351,8 +407,41 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: HtmlElementView(viewType: _viewId),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = _resolveDimension(
+          preferred: widget.captchaWidth,
+          constraint: constraints.maxWidth,
+        );
+        final height = _resolveDimension(
+          preferred: widget.captchaHeight,
+          constraint: constraints.maxHeight,
+        );
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _applyExplicitSize(width, height);
+          if (_useSafariDirectDom) {
+            _fixSafariPlatformViewVisibility();
+          }
+        });
+
+        return SizedBox(
+          width: width,
+          height: height,
+          child: HtmlElementView(viewType: _viewId),
+        );
+      },
     );
+  }
+
+  double _resolveDimension({
+    required double preferred,
+    required double constraint,
+  }) {
+    if (constraint.isFinite && constraint > 0) {
+      return constraint;
+    }
+    return preferred;
   }
 }

@@ -448,6 +448,8 @@ class ArCaptchaController {
           child: _clipCaptchaChild(
             ArCaptchaSectionHolder(
               htmlWidget: _htmlContent,
+              captchaHeight: captchaHeight,
+              captchaWidth: captchaWidth,
               loadingText: loadingOverlayText,
               showLoadingOverlay: needToShowLoadingOverlay,
               enableDebugLogging: enableDebugLogging,
@@ -472,6 +474,8 @@ class ArCaptchaController {
               child: _clipCaptchaChild(
                 ArCaptchaSectionHolder(
                   htmlWidget: _htmlContent,
+                  captchaHeight: captchaHeight,
+                  captchaWidth: captchaWidth,
                   loadingText: loadingOverlayText,
                   showLoadingOverlay: needToShowLoadingOverlay,
                   enableDebugLogging: enableDebugLogging,
@@ -494,6 +498,8 @@ class ArCaptchaController {
         child: _clipCaptchaChild(
           ArCaptchaSectionHolder(
             htmlWidget: _htmlContent,
+            captchaHeight: captchaHeight,
+            captchaWidth: captchaWidth,
             loadingText: loadingOverlayText,
             showLoadingOverlay: needToShowLoadingOverlay,
             enableDebugLogging: enableDebugLogging,
@@ -521,6 +527,8 @@ class ArCaptchaController {
           child: _clipCaptchaChild(
             ArCaptchaSectionHolder(
               htmlWidget: _htmlContent,
+              captchaHeight: captchaHeight,
+              captchaWidth: captchaWidth,
               loadingText: loadingOverlayText,
               showLoadingOverlay: needToShowLoadingOverlay,
               enableDebugLogging: enableDebugLogging,
