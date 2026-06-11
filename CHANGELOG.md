@@ -107,3 +107,10 @@
 
 # 1.2.3
 - Add needed params to the `ArCaptchaSectionHolder` mobile mode
+
+# 1.2.4
+- Fixed Safari web white screen by loading captcha HTML via Blob URL instead of `srcdoc`.
+- Added Safari browser detection utilities for web platform iframe handling.
+- Fixed invalid `background` CSS in the captcha HTML template.
+- Added `defer` to the ArCaptcha script tag for more reliable loading.
+- Skipped `ClipRRect` on web to avoid Safari CanvasKit rendering issues with `HtmlElementView`.

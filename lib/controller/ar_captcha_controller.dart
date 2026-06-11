@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -143,7 +144,7 @@ class ArCaptchaController {
         <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <script src="https://widget.arcaptcha.ir/1/api.js?domain=$domain" async></script>
+          <script src="https://widget.arcaptcha.ir/1/api.js?domain=$domain" async defer></script>
           <style>
           
           * {
@@ -188,7 +189,7 @@ class ArCaptchaController {
             text-indent: -9999em;
             animation: mulShdSpin 1.1s infinite ease;
             transform: translateZ(0);
-            background: background: ${dataSize == DataSize.invisible ? 'transparent' : theme == ThemeMode.light ? '#ffffff' : '#333333'}; !important;
+            background: ${dataSize == DataSize.invisible ? 'transparent' : theme == ThemeMode.light ? '#ffffff' : '#333333'} !important;
           }
 
           @keyframes mulShdSpin {
@@ -289,7 +290,7 @@ class ArCaptchaController {
           position: fixed;
           top: 0; left: 0;
           width: 100%; height: 100%;
-          background: background: ${dataSize == DataSize.invisible ? 'transparent' : theme == ThemeMode.light ? '#ffffff' : '#333333'};
+          background: ${dataSize == DataSize.invisible ? 'transparent' : theme == ThemeMode.light ? '#ffffff' : '#333333'};
           display: flex;
           align-items: center;
           justify-content: center;
@@ -444,9 +445,8 @@ class ArCaptchaController {
         child: SizedBox(
           height: captchaHeight,
           width: captchaWidth,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: ArCaptchaSectionHolder(
+          child: _clipCaptchaChild(
+            ArCaptchaSectionHolder(
               htmlWidget: _htmlContent,
               loadingText: loadingOverlayText,
               showLoadingOverlay: needToShowLoadingOverlay,
@@ -469,9 +469,8 @@ class ArCaptchaController {
           ),
           body: SafeArea(
             child: SizedBox.expand(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: ArCaptchaSectionHolder(
+              child: _clipCaptchaChild(
+                ArCaptchaSectionHolder(
                   htmlWidget: _htmlContent,
                   loadingText: loadingOverlayText,
                   showLoadingOverlay: needToShowLoadingOverlay,
@@ -492,9 +491,8 @@ class ArCaptchaController {
     CustomModalBottomSheet(
       bottomSheetModal: SizedBox(
         height: captchaHeight,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: ArCaptchaSectionHolder(
+        child: _clipCaptchaChild(
+          ArCaptchaSectionHolder(
             htmlWidget: _htmlContent,
             loadingText: loadingOverlayText,
             showLoadingOverlay: needToShowLoadingOverlay,
@@ -520,9 +518,8 @@ class ArCaptchaController {
         dialogChildWidget: SizedBox(
           height: captchaHeight,
           width: captchaWidth,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: ArCaptchaSectionHolder(
+          child: _clipCaptchaChild(
+            ArCaptchaSectionHolder(
               htmlWidget: _htmlContent,
               loadingText: loadingOverlayText,
               showLoadingOverlay: needToShowLoadingOverlay,
@@ -536,6 +533,19 @@ class ArCaptchaController {
     );
 
     return await completer.future;
+  }
+
+  /// Wraps captcha content. [ClipRRect] breaks [HtmlElementView] on Safari
+  /// when Flutter uses the CanvasKit renderer, so skip clipping on web.
+  Widget _clipCaptchaChild(Widget child) {
+    if (kIsWeb) {
+      return child;
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: child,
+    );
   }
 
   // ------------------------- Logger functions -------------------------
