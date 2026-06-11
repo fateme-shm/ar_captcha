@@ -114,3 +114,10 @@
 - Fixed invalid `background` CSS in the captcha HTML template.
 - Added `defer` to the ArCaptcha script tag for more reliable loading.
 - Skipped `ClipRRect` on web to avoid Safari CanvasKit rendering issues with `HtmlElementView`.
+
+# 1.2.5
+- Fixed Safari platform view not painting captcha content even when the Blob iframe loaded successfully.
+- Deferred iframe content assignment until Flutter attaches the platform view to the DOM.
+- Removed `aria-hidden` and applied Safari compositing fixes on `flt-platform-view` ancestors.
+- Disabled responsive dialog animations on Safari to avoid platform view layer bugs during transitions.
+- Hide the Flutter loading overlay as soon as captcha content reports ready.

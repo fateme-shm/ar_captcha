@@ -79,6 +79,13 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
           Navigator.of(context).pop(payload);
         } else if (type == 'state') {
           _log('state update: $payload');
+          if (payload == 'arcaptcha-ready' ||
+              payload == 'loader-hidden' ||
+              payload == 'window-loaded') {
+            if (!mounted || _isLoaded) return;
+            _log('captcha content ready; hiding Flutter overlay');
+            setState(() => _isLoaded = true);
+          }
         } else if (type == 'execute-called') {
           _log('captcha execute invoked from web page');
         }

@@ -36,11 +36,13 @@ class CaptchaWebViewWeb extends StatefulWidget {
 class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
   StreamSubscription? _messageSubscription;
   bool _didNotifyLoaded = false;
+  bool _contentAssigned = false;
   late final String _viewId;
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _loadListener;
   JSFunction? _errorListener;
   String? _blobUrl;
+  String? _pendingHtml;
 
   void _log(String message) {
     if (widget.enableDebugLogging) {
@@ -53,14 +55,20 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
   void initState() {
     super.initState();
     _viewId = 'captcha-${DateTime.now().microsecondsSinceEpoch}';
+    _pendingHtml = widget.html;
     _log(
       'init viewId=$_viewId isSafariWeb=$isSafariWeb '
       'isIOSSafariWeb=$isIOSSafariWeb htmlLength=${widget.html.length}',
     );
 
     _iframe = _buildIframe();
-    ui.platformViewRegistry.registerViewFactory(_viewId, (int id) => _iframe);
-    _setIframeContent(widget.html);
+    _applySafariIframeStyles(_iframe);
+
+    ui.platformViewRegistry.registerViewFactory(_viewId, (int id) {
+      _log('view factory invoked id=$id connected=${_iframe.isConnected}');
+      _assignContentWhenAttached();
+      return _iframe;
+    });
 
     _messageSubscription = web.window.onMessage.listen((event) {
       final data = event.data;
@@ -88,13 +96,9 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final rect = _iframe.getBoundingClientRect();
-      _log(
-        'post-frame connected=${_iframe.isConnected} '
-        'rect=${rect.width}x${rect.height} '
-        'src=${_iframe.src.isEmpty ? "(empty)" : _iframe.src} '
-        'hasSrcdoc=${_iframe.getAttribute("srcdoc")?.isNotEmpty == true}',
-      );
+      _assignContentWhenAttached();
+      _scheduleSafariVisibilityFixes();
+      _logIframeState('post-frame');
     });
   }
 
@@ -107,8 +111,27 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
         'HTML updated oldLength=${oldWidget.html.length} '
         'newLength=${widget.html.length}',
       );
-      _setIframeContent(widget.html);
+      _pendingHtml = widget.html;
+      _contentAssigned = false;
+      _didNotifyLoaded = false;
+      _assignContentWhenAttached(force: true);
     }
+  }
+
+  /// Safari must receive iframe content only after Flutter attaches the element.
+  void _assignContentWhenAttached({bool force = false}) {
+    final html = _pendingHtml;
+    if (html == null || html.isEmpty) return;
+    if (_contentAssigned && !force) return;
+
+    if (!_iframe.isConnected) {
+      _log('deferring content assignment until iframe is connected');
+      return;
+    }
+
+    _contentAssigned = true;
+    _setIframeContent(html);
+    _fixSafariPlatformViewVisibility();
   }
 
   web.HTMLIFrameElement _buildIframe() {
@@ -119,28 +142,22 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
       ..style.display = 'block';
 
     void handleLoad(web.Event _) {
-      if (_didNotifyLoaded || !mounted) return;
+      _logIframeState('load event');
 
-      _didNotifyLoaded = true;
-      widget.onLoaded?.call();
-
-      final rect = iframe.getBoundingClientRect();
-      _log(
-        'load event connected=${iframe.isConnected} '
-        'rect=${rect.width}x${rect.height} src=${iframe.src}',
-      );
+      if (!_didNotifyLoaded && mounted) {
+        _didNotifyLoaded = true;
+        widget.onLoaded?.call();
+      }
 
       if (_blobUrl != null) {
         _log('Blob URL retained until iframe disposal');
       }
+
+      _scheduleSafariVisibilityFixes();
     }
 
     void handleError(web.Event _) {
-      final rect = iframe.getBoundingClientRect();
-      _log(
-        'ERROR event connected=${iframe.isConnected} '
-        'rect=${rect.width}x${rect.height} src=${iframe.src}',
-      );
+      _logIframeState('ERROR event');
     }
 
     _loadListener = handleLoad.toJS;
@@ -149,6 +166,79 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
     iframe.addEventListener('error', _errorListener!);
 
     return iframe;
+  }
+
+  void _applySafariIframeStyles(web.HTMLIFrameElement iframe) {
+    if (!isSafariWeb) return;
+
+    iframe.style.position = 'absolute';
+    iframe.style.top = '0';
+    iframe.style.left = '0';
+    iframe.style.opacity = '1';
+    iframe.style.visibility = 'visible';
+    iframe.style.setProperty('transform', 'translateZ(0)');
+    iframe.style.setProperty('-webkit-transform', 'translateZ(0)');
+    iframe.style.setProperty('will-change', 'transform');
+    iframe.style.setProperty('pointer-events', 'auto');
+  }
+
+  /// Flutter marks platform views `aria-hidden="true"`; Safari can hide them.
+  void _fixSafariPlatformViewVisibility() {
+    if (!isSafariWeb || !_iframe.isConnected) return;
+
+    var parent = _iframe.parentElement;
+    while (parent != null) {
+      final tag = parent.tagName.toUpperCase();
+      if (tag == 'FLT-PLATFORM-VIEW' ||
+          tag == 'FLUTTER-VIEW' ||
+          tag == 'FLT-GLASS-PANE') {
+        parent.removeAttribute('aria-hidden');
+        parent.setAttribute(
+          'style',
+          'opacity:1;visibility:visible;display:block;overflow:visible',
+        );
+      }
+      parent = parent.parentElement;
+    }
+
+    _applySafariIframeStyles(_iframe);
+    _log('Safari platform view visibility fix applied');
+  }
+
+  void _forceSafariRepaint() {
+    if (!isSafariWeb || !_iframe.isConnected) return;
+
+    _iframe.style.setProperty('transform', 'translateZ(0) scale(1.001)');
+    // Trigger layout read.
+    _iframe.getBoundingClientRect();
+    _iframe.style.setProperty('transform', 'translateZ(0)');
+  }
+
+  void _scheduleSafariVisibilityFixes() {
+    if (!isSafariWeb) return;
+
+    _fixSafariPlatformViewVisibility();
+    _forceSafariRepaint();
+
+    for (final delayMs in const [50, 150, 300, 600]) {
+      Future<void>.delayed(Duration(milliseconds: delayMs), () {
+        if (!mounted) return;
+        _assignContentWhenAttached();
+        _fixSafariPlatformViewVisibility();
+        _forceSafariRepaint();
+        _logIframeState('visibility-retry-${delayMs}ms');
+      });
+    }
+  }
+
+  void _logIframeState(String label) {
+    final rect = _iframe.getBoundingClientRect();
+    _log(
+      '$label connected=${_iframe.isConnected} '
+      'rect=${rect.width}x${rect.height} '
+      'src=${_iframe.src.isEmpty ? "(empty)" : _iframe.src} '
+      'hasSrcdoc=${_iframe.getAttribute("srcdoc")?.isNotEmpty == true}',
+    );
   }
 
   /// Safari blocks external script loading inside `srcdoc` iframes.
