@@ -17,6 +17,7 @@ class ArCaptchaSectionHolder extends StatefulWidget {
   final String htmlWidget;
   final bool showLoadingOverlay;
   final String? loadingText;
+  final bool useInAppWebViewOnWeb;
   final bool enableDebugLogging;
   final double captchaHeight;
   final double captchaWidth;
@@ -26,6 +27,7 @@ class ArCaptchaSectionHolder extends StatefulWidget {
     required this.htmlWidget,
     this.showLoadingOverlay = false,
     this.loadingText,
+    this.useInAppWebViewOnWeb = false,
     required this.enableDebugLogging,
     this.captchaHeight = 550,
     this.captchaWidth = 550,

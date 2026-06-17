@@ -82,6 +82,10 @@ class ArCaptchaController {
   /// Show overlay Text loading before captcha loaded
   final String? loadingOverlayText;
 
+  /// Uses `flutter_inappwebview` for the web captcha surface when running on web.
+  /// Defaults to `false` to preserve the current HtmlElementView-based behavior.
+  final bool useInAppWebViewOnWeb;
+
   final bool enableDebugLogging;
 
   /// Constructor initializes required fields
@@ -101,12 +105,14 @@ class ArCaptchaController {
     this.maxResponsiveDialogWidth = 600,
     this.needToShowLoadingOverlay = true,
     this.loadingOverlayText = 'Loading captcha ...',
+    this.useInAppWebViewOnWeb = false,
     this.enableDebugLogging = false,
   }) {
     _log(
       'created domain=$domain siteKeyConfigured=${siteKey.isNotEmpty} '
       'lang=$lang dataSize=${dataSize.name} theme=${theme.name} '
-      'captcha=${captchaWidth}x$captchaHeight',
+      'captcha=${captchaWidth}x$captchaHeight '
+      'webMode=${useInAppWebViewOnWeb ? "inappwebview" : "html-element"}',
     );
 
     _htmlContent = _buildHtmlSection();
@@ -320,7 +326,7 @@ class ArCaptchaController {
                 }
               }
 
-              <!-- Posts data back to Flutter (Android/iOS) or WebView (Web). -->  
+              <!-- Posts data back to Flutter (mobile), HtmlElementView (web), or Flutter InAppWebView (web). -->
               function post(type, payload = null) {     
                 log('post type=' + type + ' payload=' + (payload ?? ''));
 
@@ -452,6 +458,7 @@ class ArCaptchaController {
               captchaWidth: captchaWidth,
               loadingText: loadingOverlayText,
               showLoadingOverlay: needToShowLoadingOverlay,
+              useInAppWebViewOnWeb: useInAppWebViewOnWeb,
               enableDebugLogging: enableDebugLogging,
             ),
           ),
@@ -478,6 +485,7 @@ class ArCaptchaController {
                   captchaWidth: captchaWidth,
                   loadingText: loadingOverlayText,
                   showLoadingOverlay: needToShowLoadingOverlay,
+                  useInAppWebViewOnWeb: useInAppWebViewOnWeb,
                   enableDebugLogging: enableDebugLogging,
                 ),
               ),
@@ -502,6 +510,7 @@ class ArCaptchaController {
             captchaWidth: captchaWidth,
             loadingText: loadingOverlayText,
             showLoadingOverlay: needToShowLoadingOverlay,
+            useInAppWebViewOnWeb: useInAppWebViewOnWeb,
             enableDebugLogging: enableDebugLogging,
           ),
         ),
@@ -531,6 +540,7 @@ class ArCaptchaController {
               captchaWidth: captchaWidth,
               loadingText: loadingOverlayText,
               showLoadingOverlay: needToShowLoadingOverlay,
+              useInAppWebViewOnWeb: useInAppWebViewOnWeb,
               enableDebugLogging: enableDebugLogging,
             ),
           ),

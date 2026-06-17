@@ -133,10 +133,7 @@
 - Pass `captchaHeight` / `captchaWidth` through to the web captcha view for reliable Safari layout.
 - Use `LayoutBuilder` with fixed `SizedBox` instead of `SizedBox.expand` on web.
 
-# 1.2.8
-- Use direct DOM injection for **all** Flutter web browsers (not only Safari).
-- Removed nested iframe (`srcdoc`) path — it loads but often fails to paint inside `flt-platform-view` on Firefox and other browsers.
-- Raised platform-view `z-index` and applied visibility fixes universally on web.
-- Fixed captcha never mounting (`children=0`) by retrying DOM injection until the platform view is connected to the document.
-- Scripts inside the captcha container only run after connection; mount is now retried at 0/16/50/100/150/300/600/1000ms.
-- Mount success is tracked by `childElementCount` instead of a one-shot boolean flag.
+## 1.3.0
+
+- Added an optional `useInAppWebViewOnWeb` flag to `ArCaptchaController` so web mode can render with `flutter_inappwebview` when desired.
+- Kept the existing web message bridge intact so captcha success and error callbacks continue to work reliably on web.

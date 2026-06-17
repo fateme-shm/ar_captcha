@@ -1,8 +1,4 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
-
-import '../res/common/js_interop_helper.dart';
 import 'captcha_web_view_web.dart';
 
 /// A platform-agnostic holder for rendering the captcha widget.
@@ -17,6 +13,7 @@ class ArCaptchaSectionHolder extends StatefulWidget {
   final String htmlWidget;
   final bool showLoadingOverlay;
   final String? loadingText;
+  final bool useInAppWebViewOnWeb;
   final bool enableDebugLogging;
   final double captchaHeight;
   final double captchaWidth;
@@ -26,6 +23,7 @@ class ArCaptchaSectionHolder extends StatefulWidget {
     required this.htmlWidget,
     this.showLoadingOverlay = false,
     this.loadingText,
+    this.useInAppWebViewOnWeb = false,
     required this.enableDebugLogging,
     this.captchaHeight = 550,
     this.captchaWidth = 550,
@@ -36,73 +34,7 @@ class ArCaptchaSectionHolder extends StatefulWidget {
 }
 
 class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
-  /// Subscription for listening to JS `window.postMessage` events.
-  StreamSubscription<web.MessageEvent>? _messageSubscription;
   bool _isLoaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _handleCallBack();
-    });
-  }
-
-  /// Handles messages posted from the captcha widget (success/error).
-  void _handleCallBack() {
-    if (!mounted) {
-      _log('listener not attached because widget is unmounted');
-      return;
-    }
-
-    _log('attaching window message listener');
-
-    _messageSubscription = web.window.onMessage.listen((
-      web.MessageEvent message,
-    ) {
-      final event = message.data;
-
-      if (event != null) {
-        Map<String, String?> data = convertCaptchaWebPostMessagesFromJs(event);
-
-        final type = data['type'];
-        final payload = data['payload'];
-
-        _log(
-          'received type=${type?.isEmpty == true ? "(empty)" : type} '
-          'payloadLength=${payload?.length ?? 0}',
-        );
-
-        if (type == 'success') {
-          if (!mounted) return;
-          _log('success: closing captcha route');
-          Navigator.of(context).pop(payload);
-        } else if (type == 'error') {
-          if (!mounted) return;
-          _log('error callback received $payload');
-          Navigator.of(context).pop(payload);
-        } else if (type == 'state') {
-          _log('state update: $payload');
-          if (payload == 'arcaptcha-ready' ||
-              payload == 'loader-hidden' ||
-              payload == 'window-loaded') {
-            if (!mounted || _isLoaded) return;
-            _log('captcha content ready; hiding Flutter overlay');
-            setState(() => _isLoaded = true);
-          }
-        } else if (type == 'execute-called') {
-          _log('captcha execute invoked from web page');
-        }
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _log('dispose and cancel message listener');
-    _messageSubscription?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -110,15 +42,23 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
       html: widget.htmlWidget,
       captchaHeight: widget.captchaHeight,
       captchaWidth: widget.captchaWidth,
+      useInAppWebViewOnWeb: widget.useInAppWebViewOnWeb,
       enableDebugLogging: widget.enableDebugLogging,
       onLoaded: () {
         if (!mounted) return;
-        _log('iframe reported loaded; hiding Flutter overlay');
+        _log('captcha content reported ready; hiding Flutter overlay');
         setState(() => _isLoaded = true);
       },
-      onSuccess: (payload) =>
-          _log('captcha success callback received: $payload'),
-      onError: (error) => _log('captcha error: $error'),
+      onSuccess: (payload) {
+        if (!mounted) return;
+        _log('captcha success callback received: $payload');
+        Navigator.of(context).pop(payload);
+      },
+      onError: (error) {
+        if (!mounted) return;
+        _log('captcha error: $error');
+        Navigator.of(context).pop();
+      },
     );
 
     if (!widget.showLoadingOverlay) return captchaView;

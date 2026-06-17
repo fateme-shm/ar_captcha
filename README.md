@@ -61,6 +61,7 @@ class MyCaptchaScreen extends StatelessWidget {
     lang: 'en',
     theme: ThemeMode.light,
     siteKey: 'YOUR_SITE_KEY',
+    useInAppWebViewOnWeb: true, // Optional: use flutter_inappwebview on web
   );
 
   @override
@@ -130,6 +131,7 @@ class MyCaptchaScreen extends StatelessWidget {
 | `errorPrint`               | `int`       | Show error messages (0/1)               | `0`             |
 | `captchaHeight`            | `double`    | Height of captcha container             | `550`           |
 | `captchaWidth`             | `double`    | Width (dialog mode only)                | `550`           |
+| `useInAppWebViewOnWeb`     | `bool`      | Use flutter_inappwebview for web mode   | `false`         |
 | `onErrorMessage`           | `String`    | Default error message                   | fallback string |
 | `dialogBarrierDismissible` | `bool`      | Allow closing dialog by tapping outside | `true`          |
 | `maxResponsiveDialogWidth` | `double`    | Max width for responsive dialog         | `600`           |
