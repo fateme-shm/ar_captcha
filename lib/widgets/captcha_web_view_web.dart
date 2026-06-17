@@ -45,7 +45,11 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
   StreamSubscription? _messageSubscription;
   bool _didNotifyLoaded = false;
   bool _contentMounted = false;
-  bool _safariMountRetryScheduled = false;
+  bool _safariMountWatchActive = false;
+  int _safariMountRafFrames = 0;
+  int? _safariMountRafId;
+  JSFunction? _safariMountRafCallback;
+  static const int _maxSafariMountRafFrames = 180;
   late final String _viewId;
   late final bool _useInAppWebView;
   late final bool _useSafariDirectDom;
@@ -118,7 +122,7 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
       if (!mounted) return;
       _mountContent();
       if (_useSafariDirectDom) {
-        _scheduleSafariMountRetry();
+        _startSafariMountWatch();
         _scheduleSafariVisibilityFixes();
       }
       _logElementState('post-frame');
@@ -184,6 +188,9 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
   web.HTMLDivElement _buildSafariContainer() {
     final container = web.HTMLDivElement();
     _applySafariElementStyles(container);
+    container.style.width = '${widget.captchaWidth.round()}px';
+    container.style.height = '${widget.captchaHeight.round()}px';
+    container.style.minHeight = '${widget.captchaHeight.round()}px';
     return container;
   }
 
@@ -224,19 +231,11 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
       final container = _safariContainer;
       if (container == null || !container.isConnected) {
         _log('deferring Safari DOM mount until container is connected');
-        _scheduleSafariMountRetry();
+        _startSafariMountWatch();
         return;
       }
 
-      SafariCaptchaDomMount.mount(
-        container: container,
-        html: widget.html,
-        viewId: _viewId,
-      );
-      _contentMounted = true;
-      _applyExplicitSizeIfKnown();
-      _fixSafariPlatformViewVisibility();
-      _log('Safari direct DOM mount complete');
+      _tryMountSafariContent(force: force);
       return;
     }
 
@@ -244,34 +243,102 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
     _setIframeContent(widget.html);
   }
 
-  void _scheduleSafariMountRetry([int delayMs = 0]) {
-    if (!_useSafariDirectDom || _contentMounted || _safariMountRetryScheduled) {
-      return;
-    }
+  bool _needsSafariMountWatch() {
+    if (!_useSafariDirectDom) return false;
 
-    _safariMountRetryScheduled = true;
+    final container = _safariContainer;
+    if (container == null) return true;
+    if (!container.isConnected) return true;
+    if (!_contentMounted) return true;
+    return container.childElementCount == 0;
+  }
 
-    Future<void>.delayed(Duration(milliseconds: delayMs), () {
-      _safariMountRetryScheduled = false;
-      if (!mounted || _contentMounted || !_useSafariDirectDom) return;
+  void _startSafariMountWatch() {
+    if (!_useSafariDirectDom || _safariMountWatchActive) return;
 
-      final container = _safariContainer;
-      if (container != null && container.isConnected) {
-        _mountContent(force: true);
+    _safariMountWatchActive = true;
+    _safariMountRafFrames = 0;
+
+    void onFrame(web.DOMHighResTimeStamp _) {
+      _safariMountRafId = null;
+      if (!mounted || !_useSafariDirectDom) {
+        _stopSafariMountWatch();
         return;
       }
 
-      final nextDelay = delayMs == 0
-          ? 16
-          : delayMs < 250
-              ? delayMs * 2
-              : 500;
-      _log(
-        'deferring Safari DOM mount until container is connected '
-        '(retry-${delayMs}ms connected=${container?.isConnected ?? false})',
+      _safariMountRafFrames++;
+      _tryMountSafariContent(force: true);
+
+      if (!_needsSafariMountWatch() ||
+          _safariMountRafFrames >= _maxSafariMountRafFrames) {
+        if (_needsSafariMountWatch()) {
+          _log(
+            'Safari DOM mount watch stopped after $_safariMountRafFrames frames '
+            'connected=${_safariContainer?.isConnected ?? false} '
+            'children=${_safariContainer?.childElementCount ?? 0}',
+          );
+        }
+        _stopSafariMountWatch();
+        return;
+      }
+
+      _scheduleSafariMountFrame();
+    }
+
+    _safariMountRafCallback = onFrame.toJS;
+    _scheduleSafariMountFrame();
+  }
+
+  void _scheduleSafariMountFrame() {
+    final callback = _safariMountRafCallback;
+    if (callback == null || !_safariMountWatchActive) return;
+    _safariMountRafId = web.window.requestAnimationFrame(callback);
+  }
+
+  void _stopSafariMountWatch() {
+    _safariMountWatchActive = false;
+    final rafId = _safariMountRafId;
+    if (rafId != null) {
+      web.window.cancelAnimationFrame(rafId);
+      _safariMountRafId = null;
+    }
+  }
+
+  void _tryMountSafariContent({bool force = false}) {
+    if (!_useSafariDirectDom) return;
+
+    final container = _safariContainer;
+    if (container == null || !container.isConnected) return;
+
+    if (_contentMounted && container.childElementCount == 0) {
+      _log('Safari DOM marked mounted but container is empty; remounting');
+      _contentMounted = false;
+    }
+    if (_contentMounted && !force) return;
+
+    try {
+      SafariCaptchaDomMount.mount(
+        container: container,
+        html: widget.html,
+        viewId: _viewId,
       );
-      _scheduleSafariMountRetry(nextDelay);
-    });
+
+      final childCount = container.childElementCount;
+      if (childCount > 0) {
+        _contentMounted = true;
+        _applyExplicitSizeIfKnown();
+        _fixSafariPlatformViewVisibility();
+        _log('Safari direct DOM mount complete children=$childCount');
+        _stopSafariMountWatch();
+        return;
+      }
+
+      _contentMounted = false;
+      _log('Safari direct DOM mount produced no children');
+    } catch (error) {
+      _contentMounted = false;
+      _log('Safari direct DOM mount failed: $error');
+    }
   }
 
   Widget _buildInAppWebView() {
@@ -400,6 +467,7 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
 
     _applyExplicitSizeIfKnown();
     _applySafariElementStyles(container);
+    _tryMountSafariContent(force: true);
     _log('Safari platform view visibility fix applied');
   }
 
@@ -424,8 +492,12 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
       Future<void>.delayed(Duration(milliseconds: delayMs), () {
         if (!mounted) return;
         _applyExplicitSizeIfKnown();
+        _tryMountSafariContent(force: true);
         _fixSafariPlatformViewVisibility();
         _forceSafariRepaint();
+        if (_needsSafariMountWatch()) {
+          _startSafariMountWatch();
+        }
         _logElementState('visibility-retry-${delayMs}ms');
       });
     }
@@ -476,6 +548,7 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
   @override
   void dispose() {
     _log('dispose connected=$_isConnected');
+    _stopSafariMountWatch();
 
     final iframe = _iframe;
     if (iframe != null) {
@@ -538,7 +611,11 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
           if (!mounted) return;
           _applyExplicitSize(width, height);
           if (_useSafariDirectDom) {
+            _tryMountSafariContent(force: true);
             _fixSafariPlatformViewVisibility();
+            if (_needsSafariMountWatch()) {
+              _startSafariMountWatch();
+            }
           }
         });
 

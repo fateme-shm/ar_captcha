@@ -151,3 +151,10 @@
 ## 1.3.3
 
 - Fixed Safari direct DOM mounting when the platform view is attached asynchronously.
+
+## 1.3.4
+
+- Fixed Safari blank captcha when the platform view connected but DOM content was never injected (`connected=true`, `children=0`).
+- Replaced delayed mount retries with a `requestAnimationFrame` watch that mounts as soon as the platform view is attached.
+- Remount captcha content during visibility and layout passes when the container is connected but empty.
+- Set explicit pixel dimensions on the Safari container at creation to avoid Flutter platform view size warnings.
