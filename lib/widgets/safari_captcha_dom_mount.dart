@@ -18,8 +18,9 @@ class SafariCaptchaDomMount {
     }
 
     final loaderId = 'ar-captcha-loader-$viewId';
-    final verifyCallback = 'arCaptchaVerify_$viewId';
-    final errorCallback = 'arCaptchaError_$viewId';
+    final safeViewId = _toSafeJsIdentifier(viewId);
+    final verifyCallback = 'arCaptchaVerify_$safeViewId';
+    final errorCallback = 'arCaptchaError_$safeViewId';
 
     container.id = 'ar-captcha-root-$viewId';
     container.style.width = '100%';
@@ -56,7 +57,8 @@ class SafariCaptchaDomMount {
 
     bodyWithoutScripts = bodyWithoutScripts
         .replaceAll('id="loader"', 'id="$loaderId"')
-        .replaceAll('data-callback="onVerified"', 'data-callback="$verifyCallback"')
+        .replaceAll(
+            'data-callback="onVerified"', 'data-callback="$verifyCallback"')
         .replaceAll(
           'data-error-callback="onError"',
           'data-error-callback="$errorCallback"',
@@ -106,6 +108,10 @@ class SafariCaptchaDomMount {
 
   static String? _firstMatch(String html, RegExp reg) {
     return reg.firstMatch(html)?.group(1);
+  }
+
+  static String _toSafeJsIdentifier(String value) {
+    return value.replaceAll(RegExp(r'[^a-zA-Z0-9_$]'), '_');
   }
 
   static String _extractBodyBackground(String html) {

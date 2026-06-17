@@ -137,3 +137,13 @@
 
 - Added an optional `useInAppWebViewOnWeb` flag to `ArCaptchaController` so web mode can render with `flutter_inappwebview` when desired.
 - Kept the existing web message bridge intact so captcha success and error callbacks continue to work reliably on web.
+
+## 1.3.1
+
+- Fixed Safari web rendering when `useInAppWebViewOnWeb` is enabled by forcing Safari to use the direct DOM captcha mount.
+- Kept `flutter_inappwebview` rendering available for non-Safari web browsers.
+
+## 1.3.2
+
+- Fixed Safari direct DOM callback registration by sanitizing generated JavaScript callback names.
+- Fixed Safari captcha staying hidden behind the loader when the platform view id contains hyphens.

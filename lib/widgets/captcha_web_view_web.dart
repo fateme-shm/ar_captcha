@@ -68,10 +68,11 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
   void initState() {
     super.initState();
     _viewId = 'captcha-${DateTime.now().microsecondsSinceEpoch}';
-    _useInAppWebView = widget.useInAppWebViewOnWeb;
-    _useSafariDirectDom = isSafariWeb && !_useInAppWebView;
+    _useSafariDirectDom = isSafariWeb;
+    _useInAppWebView = widget.useInAppWebViewOnWeb && !_useSafariDirectDom;
     _log(
-      'init viewId=$_viewId useInAppWebView=$_useInAppWebView '
+      'init viewId=$_viewId requestedInAppWebView=${widget.useInAppWebViewOnWeb} '
+      'useInAppWebView=$_useInAppWebView '
       'useSafariDirectDom=$_useSafariDirectDom '
       'isIOSSafariWeb=$isIOSSafariWeb htmlLength=${widget.html.length}',
     );
