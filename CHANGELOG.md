@@ -147,3 +147,7 @@
 
 - Fixed Safari direct DOM callback registration by sanitizing generated JavaScript callback names.
 - Fixed Safari captcha staying hidden behind the loader when the platform view id contains hyphens.
+
+## 1.3.3
+
+- Fixed Safari direct DOM mounting when the platform view is attached asynchronously.

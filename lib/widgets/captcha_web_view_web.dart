@@ -45,6 +45,7 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
   StreamSubscription? _messageSubscription;
   bool _didNotifyLoaded = false;
   bool _contentMounted = false;
+  bool _safariMountRetryScheduled = false;
   late final String _viewId;
   late final bool _useInAppWebView;
   late final bool _useSafariDirectDom;
@@ -117,6 +118,7 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
       if (!mounted) return;
       _mountContent();
       if (_useSafariDirectDom) {
+        _scheduleSafariMountRetry();
         _scheduleSafariVisibilityFixes();
       }
       _logElementState('post-frame');
@@ -222,6 +224,7 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
       final container = _safariContainer;
       if (container == null || !container.isConnected) {
         _log('deferring Safari DOM mount until container is connected');
+        _scheduleSafariMountRetry();
         return;
       }
 
@@ -239,6 +242,36 @@ class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
 
     _contentMounted = true;
     _setIframeContent(widget.html);
+  }
+
+  void _scheduleSafariMountRetry([int delayMs = 0]) {
+    if (!_useSafariDirectDom || _contentMounted || _safariMountRetryScheduled) {
+      return;
+    }
+
+    _safariMountRetryScheduled = true;
+
+    Future<void>.delayed(Duration(milliseconds: delayMs), () {
+      _safariMountRetryScheduled = false;
+      if (!mounted || _contentMounted || !_useSafariDirectDom) return;
+
+      final container = _safariContainer;
+      if (container != null && container.isConnected) {
+        _mountContent(force: true);
+        return;
+      }
+
+      final nextDelay = delayMs == 0
+          ? 16
+          : delayMs < 250
+              ? delayMs * 2
+              : 500;
+      _log(
+        'deferring Safari DOM mount until container is connected '
+        '(retry-${delayMs}ms connected=${container?.isConnected ?? false})',
+      );
+      _scheduleSafariMountRetry(nextDelay);
+    });
   }
 
   Widget _buildInAppWebView() {
