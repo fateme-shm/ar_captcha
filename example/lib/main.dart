@@ -35,6 +35,7 @@ class _MyHomePageState extends State<MyHomePage> {
     siteKey: 'YOUR_SITE_KEY',
     domain: 'https://example.com',
     dataSize: DataSize.invisible,
+    useInAppWebViewOnWeb: true,
   );
 
   @override

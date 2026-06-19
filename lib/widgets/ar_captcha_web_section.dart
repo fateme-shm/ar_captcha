@@ -1,8 +1,4 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
-
-import '../res/common/js_interop_helper.dart';
 import 'captcha_web_view_web.dart';
 
 /// A platform-agnostic holder for rendering the captcha widget.
@@ -17,12 +13,20 @@ class ArCaptchaSectionHolder extends StatefulWidget {
   final String htmlWidget;
   final bool showLoadingOverlay;
   final String? loadingText;
+  final bool useInAppWebViewOnWeb;
+  final bool enableDebugLogging;
+  final double captchaHeight;
+  final double captchaWidth;
 
   const ArCaptchaSectionHolder({
     super.key,
     required this.htmlWidget,
     this.showLoadingOverlay = false,
     this.loadingText,
+    this.useInAppWebViewOnWeb = false,
+    required this.enableDebugLogging,
+    this.captchaHeight = 550,
+    this.captchaWidth = 550,
   });
 
   @override
@@ -30,63 +34,30 @@ class ArCaptchaSectionHolder extends StatefulWidget {
 }
 
 class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
-  /// Subscription for listening to JS `window.postMessage` events.
-  StreamSubscription<web.MessageEvent>? _messageSubscription;
   bool _isLoaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _handleCallBack();
-    });
-  }
-
-  /// Handles messages posted from the captcha widget (success/error).
-  void _handleCallBack() {
-    if (!mounted) return;
-
-    _messageSubscription = web.window.onMessage.listen((
-      web.MessageEvent message,
-    ) {
-      final event = message.data;
-
-      if (event != null) {
-        Map<String, String?> data = convertCaptchaWebPostMessagesFromJs(event);
-
-        final type = data['type'];
-        final payload = data['payload'];
-
-        if (type == 'success') {
-          Navigator.of(context).pop(payload);
-        } else if (type == 'error') {
-          debugPrint('ArCaptcha error: $payload');
-          Navigator.of(context).pop(payload);
-        }
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _messageSubscription?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final captchaView = CaptchaWebViewWeb(
       html: widget.htmlWidget,
+      captchaHeight: widget.captchaHeight,
+      captchaWidth: widget.captchaWidth,
+      useInAppWebViewOnWeb: widget.useInAppWebViewOnWeb,
+      enableDebugLogging: widget.enableDebugLogging,
       onLoaded: () {
         if (!mounted) return;
+        _log('captcha content reported ready; hiding Flutter overlay');
         setState(() => _isLoaded = true);
       },
-      onSuccess: (token) {
-        Navigator.of(context).pop(token);
+      onSuccess: (payload) {
+        if (!mounted) return;
+        _log('captcha success callback received: $payload');
+        Navigator.of(context).pop(payload);
       },
       onError: (error) {
-        debugPrint('ArCaptcha error: $error');
-        Navigator.of(context).pop(error);
+        if (!mounted) return;
+        _log('captcha error: $error');
+        Navigator.of(context).pop();
       },
     );
 
@@ -118,5 +89,13 @@ class _ArCaptchaSectionHolderState extends State<ArCaptchaSectionHolder> {
           ),
       ],
     );
+  }
+  // ------------------------- Logger functions -------------------------
+
+  void _log(String message) {
+    if (widget.enableDebugLogging) {
+      // ignore: avoid_print
+      print('[ArCaptcha][Messages] $message');
+    }
   }
 }

@@ -9,12 +9,21 @@ class ArCaptchaSectionHolder extends StatelessWidget {
   final String? loadingText;
 
   final bool showLoadingOverlay;
+  final bool useInAppWebViewOnWeb;
+
+  final bool enableDebugLogging;
+  final double captchaHeight;
+  final double captchaWidth;
 
   const ArCaptchaSectionHolder({
     super.key,
     required this.htmlWidget,
     this.showLoadingOverlay = true,
     this.loadingText = 'Loading captcha ...',
+    this.useInAppWebViewOnWeb = false,
+    required this.enableDebugLogging,
+    this.captchaHeight = 550,
+    this.captchaWidth = 550,
   });
 
   @override

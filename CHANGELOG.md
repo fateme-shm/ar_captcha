@@ -1,3 +1,4 @@
+
 ## 1.0.0
 
 - Initial release of **ar_captcha** 🎉
@@ -98,3 +99,62 @@
 
 # 1.2.1
 - Change readme
+
+
+# 1.2.2
+- Fixed the double `Navigator.pop` on web captcha success/error that could close the OTP screen under `responsiveDialog`.
+- Added debug logging around captcha initiation and web lifecycle events to help trace captcha open, load, execute, success, and error flows.
+
+# 1.2.3
+- Add needed params to the `ArCaptchaSectionHolder` mobile mode
+
+# 1.2.4
+- Fixed Safari web white screen by loading captcha HTML via Blob URL instead of `srcdoc`.
+- Added Safari browser detection utilities for web platform iframe handling.
+- Fixed invalid `background` CSS in the captcha HTML template.
+- Added `defer` to the ArCaptcha script tag for more reliable loading.
+- Skipped `ClipRRect` on web to avoid Safari CanvasKit rendering issues with `HtmlElementView`.
+
+# 1.2.5
+- Fixed Safari platform view not painting captcha content even when the Blob iframe loaded successfully.
+- Deferred iframe content assignment until Flutter attaches the platform view to the DOM.
+- Removed `aria-hidden` and applied Safari compositing fixes on `flt-platform-view` ancestors.
+- Disabled responsive dialog animations on Safari to avoid platform view layer bugs during transitions.
+- Hide the Flutter loading overlay as soon as captcha content reports ready.
+
+# 1.2.6
+- Fixed Safari blank captcha by mounting widget markup directly into the platform-view `div` instead of a nested iframe.
+- Safari now injects ArCaptcha scripts and DOM into `HtmlElementView` to avoid WebKit compositor bugs with blob iframes.
+- Namespaced captcha callbacks per view instance to avoid collisions on the host page.
+- Only fire iframe `onLoad` after real content is assigned (ignore empty initial loads).
+
+# 1.2.7
+- Fixed Safari zero-height platform view (`rect=500x0`) by applying explicit pixel dimensions to `HtmlElementView` and `flt-platform-view`.
+- Pass `captchaHeight` / `captchaWidth` through to the web captcha view for reliable Safari layout.
+- Use `LayoutBuilder` with fixed `SizedBox` instead of `SizedBox.expand` on web.
+
+## 1.3.0
+
+- Added an optional `useInAppWebViewOnWeb` flag to `ArCaptchaController` so web mode can render with `flutter_inappwebview` when desired.
+- Kept the existing web message bridge intact so captcha success and error callbacks continue to work reliably on web.
+
+## 1.3.1
+
+- Fixed Safari web rendering when `useInAppWebViewOnWeb` is enabled by forcing Safari to use the direct DOM captcha mount.
+- Kept `flutter_inappwebview` rendering available for non-Safari web browsers.
+
+## 1.3.2
+
+- Fixed Safari direct DOM callback registration by sanitizing generated JavaScript callback names.
+- Fixed Safari captcha staying hidden behind the loader when the platform view id contains hyphens.
+
+## 1.3.3
+
+- Fixed Safari direct DOM mounting when the platform view is attached asynchronously.
+
+## 1.3.4
+
+- Fixed Safari blank captcha when the platform view connected but DOM content was never injected (`connected=true`, `children=0`).
+- Replaced delayed mount retries with a `requestAnimationFrame` watch that mounts as soon as the platform view is attached.
+- Remount captcha content during visibility and layout passes when the container is connected but empty.
+- Set explicit pixel dimensions on the Safari container at creation to avoid Flutter platform view size warnings.

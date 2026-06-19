@@ -1,9 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-
-import '../res/utils/screen_size_util.dart';
 
 import '../controller/ar_captcha_controller.dart';
 import '../res/model/show_dialog_parameters.dart';
+import '../res/utils/screen_size_util.dart';
+import '../res/utils/web_browser_info.dart';
 
 /// A fully adaptive dialog system that dynamically switches between
 /// a centered dialog (desktop/tablet) and a modal bottom sheet (mobile).
@@ -74,6 +75,55 @@ class _AdaptiveDialogContainer extends StatelessWidget {
 
     // Check if the screen is mobile
     bool isMobile = context.screenSizeType == DeviceScreenSizeType.mobile;
+    final useStaticLayout = kIsWeb && isSafariWeb;
+
+    final dialogContent = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isMobile) ...[
+          const SizedBox(height: 18),
+          Container(
+            width: screenWidth / 8,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Divider(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+              thickness: 4,
+              height: 4,
+            ),
+          ),
+        ],
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: childWidget,
+        ),
+      ],
+    );
+
+    final dialogBox = Container(
+      constraints: BoxConstraints(
+        maxWidth: isMobile
+            ? screenWidth
+            : ArCaptchaController.getMaxResponsiveDialogWidth,
+        minWidth: isMobile
+            ? screenWidth
+            : ArCaptchaController.getMaxResponsiveDialogWidth,
+      ),
+      decoration: BoxDecoration(
+        color: isMobile
+            ? theme.colorScheme.surfaceContainerLowest
+            : Colors.transparent,
+        borderRadius: BorderRadius.vertical(
+          top: const Radius.circular(16),
+          bottom: Radius.circular(isMobile ? 0 : 16),
+        ),
+      ),
+      child: dialogContent,
+    );
 
     return PopScope(
       canPop: barrierDismissible,
@@ -83,60 +133,25 @@ class _AdaptiveDialogContainer extends StatelessWidget {
         },
         child: Material(
           color: Colors.transparent,
-          child: AnimatedAlign(
-            duration: animationDuration,
-            curve: Curves.easeInOut,
-            alignment: isMobile ? Alignment.bottomCenter : Alignment.center,
-            child: AnimatedContainer(
-              curve: Curves.easeInOut,
-              duration: animationDuration,
-              constraints: BoxConstraints(
-                maxWidth: isMobile
-                    ? screenWidth
-                    : ArCaptchaController.getMaxResponsiveDialogWidth,
-                minWidth: isMobile
-                    ? screenWidth
-                    : ArCaptchaController.getMaxResponsiveDialogWidth,
-              ),
-              decoration: BoxDecoration(
-                color: isMobile
-                    ? theme.colorScheme.surfaceContainerLowest
-                    : Colors.transparent,
-                borderRadius: BorderRadius.vertical(
-                  top: const Radius.circular(16),
-                  bottom: Radius.circular(isMobile ? 0 : 16),
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (isMobile) ...[
-                    const SizedBox(height: 18),
-                    Container(
-                      width: screenWidth / 8,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: theme.colorScheme.outlineVariant
-                              .withValues(alpha: 0.4),
-                        ),
-                      ),
-                      child: Divider(
-                        color: theme.colorScheme.outlineVariant
-                            .withValues(alpha: 0.4),
-                        thickness: 4,
-                        height: 4,
-                      ),
-                    ),
-                  ],
-                  Padding(
-                    padding: EdgeInsets.all(16),
-                    child: childWidget,
+          child: useStaticLayout
+              ? Align(
+                  alignment:
+                      isMobile ? Alignment.bottomCenter : Alignment.center,
+                  child: dialogBox,
+                )
+              : AnimatedAlign(
+                  duration: animationDuration,
+                  curve: Curves.easeInOut,
+                  alignment:
+                      isMobile ? Alignment.bottomCenter : Alignment.center,
+                  child: AnimatedContainer(
+                    curve: Curves.easeInOut,
+                    duration: animationDuration,
+                    constraints: dialogBox.constraints!,
+                    decoration: dialogBox.decoration,
+                    child: dialogContent,
                   ),
-                ],
-              ),
-            ),
-          ),
+                ),
         ),
       ),
     );

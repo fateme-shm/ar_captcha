@@ -5,18 +5,25 @@ import 'dart:ui_web' as ui;
 
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 // Package imports:
 import 'package:web/web.dart' as web;
 
 // Project imports:
 import '../res/common/js_interop_helper.dart';
+import '../res/utils/web_browser_info.dart';
+import 'safari_captcha_dom_mount.dart';
 
 class CaptchaWebViewWeb extends StatefulWidget {
   final String html;
   final void Function(String token) onSuccess;
   final void Function(String error) onError;
   final VoidCallback? onLoaded;
+  final bool useInAppWebViewOnWeb;
+  final bool enableDebugLogging;
+  final double captchaHeight;
+  final double captchaWidth;
 
   const CaptchaWebViewWeb({
     super.key,
@@ -24,6 +31,10 @@ class CaptchaWebViewWeb extends StatefulWidget {
     required this.onSuccess,
     required this.onError,
     this.onLoaded,
+    this.useInAppWebViewOnWeb = false,
+    required this.enableDebugLogging,
+    this.captchaHeight = 550,
+    this.captchaWidth = 550,
   });
 
   @override
@@ -31,67 +42,599 @@ class CaptchaWebViewWeb extends StatefulWidget {
 }
 
 class _CaptchaWebViewWebState extends State<CaptchaWebViewWeb> {
-  StreamSubscription? sub;
+  StreamSubscription? _messageSubscription;
   bool _didNotifyLoaded = false;
+  bool _contentMounted = false;
+  bool _safariMountWatchActive = false;
+  int _safariMountRafFrames = 0;
+  int? _safariMountRafId;
+  JSFunction? _safariMountRafCallback;
+  static const int _maxSafariMountRafFrames = 180;
   late final String _viewId;
-  late final web.HTMLIFrameElement _iframe;
+  late final bool _useInAppWebView;
+  late final bool _useSafariDirectDom;
+  web.HTMLDivElement? _safariContainer;
+  web.HTMLIFrameElement? _iframe;
+  InAppWebViewController? _inAppWebViewController;
+  JSFunction? _loadListener;
+  JSFunction? _errorListener;
+  String? _blobUrl;
+  double? _layoutWidth;
+  double? _layoutHeight;
+
+  void _log(String message) {
+    if (widget.enableDebugLogging) {
+      // ignore: avoid_print
+      print('[ArCaptcha][WebView] $message');
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _viewId = 'captcha-${DateTime.now().millisecondsSinceEpoch}';
-    _iframe = web.HTMLIFrameElement()
-      ..srcdoc = widget.html.toJS
+    _viewId = 'captcha-${DateTime.now().microsecondsSinceEpoch}';
+    _useSafariDirectDom = isSafariWeb;
+    _useInAppWebView = widget.useInAppWebViewOnWeb && !_useSafariDirectDom;
+    _log(
+      'init viewId=$_viewId requestedInAppWebView=${widget.useInAppWebViewOnWeb} '
+      'useInAppWebView=$_useInAppWebView '
+      'useSafariDirectDom=$_useSafariDirectDom '
+      'isIOSSafariWeb=$isIOSSafariWeb htmlLength=${widget.html.length}',
+    );
+
+    if (_useSafariDirectDom) {
+      _safariContainer = _buildSafariContainer();
+    } else {
+      _iframe = _buildIframe();
+    }
+
+    ui.platformViewRegistry.registerViewFactory(_viewId, (int id) {
+      _log(
+        'view factory invoked id=$id mode=${_useSafariDirectDom ? "direct-dom" : "iframe"} '
+        'connected=$_isConnected',
+      );
+      _mountContent();
+      return _useSafariDirectDom ? _safariContainer! : _iframe!;
+    });
+
+    _messageSubscription = web.window.onMessage.listen((event) {
+      final data = event.data;
+      if (data == null) return;
+
+      try {
+        final message = convertCaptchaWebPostMessagesFromJs(data);
+        _handleMessage(
+          type: message['type'],
+          payload: message['payload'],
+        );
+      } catch (_) {}
+    });
+
+    if (_useInAppWebView) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _log('using flutter_inappwebview surface on web');
+      });
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mountContent();
+      if (_useSafariDirectDom) {
+        _startSafariMountWatch();
+        _scheduleSafariVisibilityFixes();
+      }
+      _logElementState('post-frame');
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant CaptchaWebViewWeb oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.html != widget.html) {
+      _log(
+        'HTML updated oldLength=${oldWidget.html.length} '
+        'newLength=${widget.html.length}',
+      );
+      _contentMounted = false;
+      _didNotifyLoaded = false;
+      if (_useInAppWebView) {
+        _inAppWebViewController?.loadData(data: widget.html);
+      } else {
+        _mountContent(force: true);
+      }
+    }
+  }
+
+  void _handleMessage({required String? type, String? payload}) {
+    if (type == null || type.isEmpty) return;
+
+    _log(
+      'received type=${type.isEmpty ? "(empty)" : type} '
+      'payloadLength=${payload?.length ?? 0}',
+    );
+
+    if (type == 'state') {
+      _log('state update: $payload');
+      if (payload == 'arcaptcha-ready' ||
+          payload == 'loader-hidden' ||
+          payload == 'window-loaded') {
+        _notifyLoadedOnce();
+      }
+      return;
+    }
+
+    if (type == 'success') {
+      if (payload != null && payload.isNotEmpty) {
+        widget.onSuccess(payload);
+      } else {
+        widget.onError('captcha token is empty');
+      }
+      return;
+    }
+
+    if (type == 'error') {
+      widget.onError(payload ?? 'captcha error');
+      return;
+    }
+
+    if (type == 'execute-called') {
+      _log('captcha execute invoked from web page');
+    }
+  }
+
+  web.HTMLDivElement _buildSafariContainer() {
+    final container = web.HTMLDivElement();
+    _applySafariElementStyles(container);
+    container.style.width = '${widget.captchaWidth.round()}px';
+    container.style.height = '${widget.captchaHeight.round()}px';
+    container.style.minHeight = '${widget.captchaHeight.round()}px';
+    return container;
+  }
+
+  web.HTMLIFrameElement _buildIframe() {
+    final iframe = web.HTMLIFrameElement()
       ..style.border = 'none'
       ..style.width = '100%'
       ..style.height = '100%'
       ..style.display = 'block';
 
-    _iframe.onLoad.listen((_) {
-      if (_didNotifyLoaded || !mounted) return;
+    void handleLoad(web.Event _) {
+      final src = iframe.src;
+      if (src.isEmpty || src == 'about:blank') {
+        _logElementState('ignored empty iframe load');
+        return;
+      }
 
-      _didNotifyLoaded = true;
-      widget.onLoaded?.call();
-    });
+      _logElementState('iframe load');
+      _notifyLoadedOnce();
+    }
 
-    ui.platformViewRegistry.registerViewFactory(_viewId, (int id) => _iframe);
+    void handleError(web.Event _) {
+      _logElementState('iframe ERROR');
+    }
 
-    sub = web.window.onMessage.listen((event) {
-      final data = event.data;
+    _loadListener = handleLoad.toJS;
+    _errorListener = handleError.toJS;
+    iframe.addEventListener('load', _loadListener!);
+    iframe.addEventListener('error', _errorListener!);
 
-      if (data == null) return;
+    return iframe;
+  }
 
-      try {
-        final message = convertCaptchaWebPostMessagesFromJs(data);
-        final type = message['type'];
-        final payload = message['payload'];
+  void _mountContent({bool force = false}) {
+    if (_contentMounted && !force) return;
 
-        if (type == 'success') {
-          if (payload != null) {
-            widget.onSuccess(payload);
-          } else {
-            widget.onError('captcha token is empty');
-          }
+    if (_useSafariDirectDom) {
+      final container = _safariContainer;
+      if (container == null || !container.isConnected) {
+        _log('deferring Safari DOM mount until container is connected');
+        _startSafariMountWatch();
+        return;
+      }
+
+      _tryMountSafariContent(force: force);
+      return;
+    }
+
+    _contentMounted = true;
+    _setIframeContent(widget.html);
+  }
+
+  bool _needsSafariMountWatch() {
+    if (!_useSafariDirectDom) return false;
+
+    final container = _safariContainer;
+    if (container == null) return true;
+    if (!container.isConnected) return true;
+    if (!_contentMounted) return true;
+    return container.childElementCount == 0;
+  }
+
+  void _startSafariMountWatch() {
+    if (!_useSafariDirectDom || _safariMountWatchActive) return;
+
+    _safariMountWatchActive = true;
+    _safariMountRafFrames = 0;
+
+    void onFrame(web.DOMHighResTimeStamp _) {
+      _safariMountRafId = null;
+      if (!mounted || !_useSafariDirectDom) {
+        _stopSafariMountWatch();
+        return;
+      }
+
+      _safariMountRafFrames++;
+      _tryMountSafariContent(force: true);
+
+      if (!_needsSafariMountWatch() ||
+          _safariMountRafFrames >= _maxSafariMountRafFrames) {
+        if (_needsSafariMountWatch()) {
+          _log(
+            'Safari DOM mount watch stopped after $_safariMountRafFrames frames '
+            'connected=${_safariContainer?.isConnected ?? false} '
+            'children=${_safariContainer?.childElementCount ?? 0}',
+          );
         }
+        _stopSafariMountWatch();
+        return;
+      }
 
-        if (type == 'error') {
-          widget.onError(payload ?? 'captcha error');
+      _scheduleSafariMountFrame();
+    }
+
+    _safariMountRafCallback = onFrame.toJS;
+    _scheduleSafariMountFrame();
+  }
+
+  void _scheduleSafariMountFrame() {
+    final callback = _safariMountRafCallback;
+    if (callback == null || !_safariMountWatchActive) return;
+    _safariMountRafId = web.window.requestAnimationFrame(callback);
+  }
+
+  void _stopSafariMountWatch() {
+    _safariMountWatchActive = false;
+    final rafId = _safariMountRafId;
+    if (rafId != null) {
+      web.window.cancelAnimationFrame(rafId);
+      _safariMountRafId = null;
+    }
+  }
+
+  void _tryMountSafariContent({bool force = false}) {
+    if (!_useSafariDirectDom) return;
+
+    final container = _safariContainer;
+    if (container == null || !container.isConnected) return;
+
+    if (_contentMounted && container.childElementCount == 0) {
+      _log('Safari DOM marked mounted but container is empty; remounting');
+      _contentMounted = false;
+    }
+    if (_contentMounted && !force) return;
+
+    try {
+      SafariCaptchaDomMount.mount(
+        container: container,
+        html: widget.html,
+        viewId: _viewId,
+      );
+
+      final childCount = container.childElementCount;
+      if (childCount > 0) {
+        _contentMounted = true;
+        _applyExplicitSizeIfKnown();
+        _fixSafariPlatformViewVisibility();
+        _log('Safari direct DOM mount complete children=$childCount');
+        _stopSafariMountWatch();
+        return;
+      }
+
+      _contentMounted = false;
+      _log('Safari direct DOM mount produced no children');
+    } catch (error) {
+      _contentMounted = false;
+      _log('Safari direct DOM mount failed: $error');
+    }
+  }
+
+  Widget _buildInAppWebView() {
+    return InAppWebView(
+      initialData: InAppWebViewInitialData(data: widget.html),
+      initialSettings: InAppWebViewSettings(
+        transparentBackground: true,
+        javaScriptEnabled: true,
+        disableVerticalScroll: true,
+        disableHorizontalScroll: true,
+        supportZoom: false,
+      ),
+      onWebViewCreated: (controller) {
+        _inAppWebViewController = controller;
+      },
+      onLoadStop: (controller, url) {
+        _log('inappwebview load stop url=${url?.toString() ?? "(null)"}');
+        _notifyLoadedOnce();
+      },
+      onConsoleMessage: (controller, consoleMessage) {
+        _log('console ${consoleMessage.message}');
+      },
+    );
+  }
+
+  void _notifyLoadedOnce() {
+    if (_didNotifyLoaded || !mounted) return;
+    _didNotifyLoaded = true;
+    widget.onLoaded?.call();
+  }
+
+  bool get _isConnected {
+    if (_useSafariDirectDom) {
+      return _safariContainer?.isConnected ?? false;
+    }
+    return _iframe?.isConnected ?? false;
+  }
+
+  void _applyExplicitSize(double width, double height) {
+    _layoutWidth = width;
+    _layoutHeight = height;
+
+    final widthPx = '${width.round()}px';
+    final heightPx = '${height.round()}px';
+
+    final safariContainer = _safariContainer;
+    if (safariContainer != null && safariContainer.isConnected) {
+      safariContainer.style.width = widthPx;
+      safariContainer.style.height = heightPx;
+      safariContainer.style.minHeight = heightPx;
+    }
+
+    final iframe = _iframe;
+    if (iframe != null && iframe.isConnected) {
+      iframe.style.width = widthPx;
+      iframe.style.height = heightPx;
+      iframe.style.minHeight = heightPx;
+    }
+
+    final root = safariContainer ?? iframe;
+    if (root != null && root.isConnected) {
+      var parent = root.parentElement;
+      while (parent != null) {
+        if (parent.tagName.toUpperCase() == 'FLT-PLATFORM-VIEW') {
+          parent.setAttribute(
+            'style',
+            'width:$widthPx;height:$heightPx;min-height:$heightPx;'
+                'opacity:1;visibility:visible;display:block;overflow:visible;'
+                'position:relative;z-index:1;transform:translateZ(0);'
+                '-webkit-transform:translateZ(0);',
+          );
+          break;
         }
-      } catch (_) {}
-    });
+        parent = parent.parentElement;
+      }
+    }
+
+    _log('explicit size applied ${width.round()}x${height.round()}');
+  }
+
+  void _applyExplicitSizeIfKnown() {
+    final width = _layoutWidth;
+    final height = _layoutHeight;
+    if (width == null || height == null) return;
+    if (width <= 0 || height <= 0) return;
+    _applyExplicitSize(width, height);
+  }
+
+  void _applySafariElementStyles(web.HTMLDivElement element) {
+    element.style.position = 'absolute';
+    element.style.top = '0';
+    element.style.left = '0';
+    element.style.opacity = '1';
+    element.style.visibility = 'visible';
+    element.style.setProperty('transform', 'translateZ(0)');
+    element.style.setProperty('-webkit-transform', 'translateZ(0)');
+    element.style.setProperty('will-change', 'transform');
+    element.style.setProperty('pointer-events', 'auto');
+    element.style.setProperty('z-index', '1');
+  }
+
+  void _fixSafariPlatformViewVisibility() {
+    final container = _safariContainer;
+    if (!_useSafariDirectDom || container == null || !container.isConnected) {
+      return;
+    }
+
+    var parent = container.parentElement;
+    while (parent != null) {
+      final tag = parent.tagName.toUpperCase();
+      if (tag == 'FLT-PLATFORM-VIEW' ||
+          tag == 'FLUTTER-VIEW' ||
+          tag == 'FLT-GLASS-PANE' ||
+          tag == 'FLT-SCENE-HOST' ||
+          tag == 'FLT-SCENE') {
+        parent.removeAttribute('aria-hidden');
+        parent.setAttribute(
+          'style',
+          'opacity:1;visibility:visible;display:block;overflow:visible;'
+              'position:relative;z-index:1;transform:translateZ(0);'
+              '-webkit-transform:translateZ(0);',
+        );
+      }
+      parent = parent.parentElement;
+    }
+
+    _applyExplicitSizeIfKnown();
+    _applySafariElementStyles(container);
+    _tryMountSafariContent(force: true);
+    _log('Safari platform view visibility fix applied');
+  }
+
+  void _forceSafariRepaint() {
+    final container = _safariContainer;
+    if (!_useSafariDirectDom || container == null || !container.isConnected) {
+      return;
+    }
+
+    container.style.setProperty('transform', 'translateZ(0) scale(1.001)');
+    container.getBoundingClientRect();
+    container.style.setProperty('transform', 'translateZ(0)');
+  }
+
+  void _scheduleSafariVisibilityFixes() {
+    if (!_useSafariDirectDom) return;
+
+    _fixSafariPlatformViewVisibility();
+    _forceSafariRepaint();
+
+    for (final delayMs in const [50, 150, 300, 600]) {
+      Future<void>.delayed(Duration(milliseconds: delayMs), () {
+        if (!mounted) return;
+        _applyExplicitSizeIfKnown();
+        _tryMountSafariContent(force: true);
+        _fixSafariPlatformViewVisibility();
+        _forceSafariRepaint();
+        if (_needsSafariMountWatch()) {
+          _startSafariMountWatch();
+        }
+        _logElementState('visibility-retry-${delayMs}ms');
+      });
+    }
+  }
+
+  void _logElementState(String label) {
+    if (_useSafariDirectDom) {
+      final container = _safariContainer;
+      if (container == null) return;
+      final rect = container.getBoundingClientRect();
+      _log(
+        '$label connected=${container.isConnected} '
+        'rect=${rect.width}x${rect.height} mode=direct-dom '
+        'children=${container.childElementCount}',
+      );
+      return;
+    }
+
+    final iframe = _iframe;
+    if (iframe == null) return;
+    final rect = iframe.getBoundingClientRect();
+    _log(
+      '$label connected=${iframe.isConnected} '
+      'rect=${rect.width}x${rect.height} mode=iframe '
+      'src=${iframe.src.isEmpty ? "(empty)" : iframe.src}',
+    );
+  }
+
+  void _setIframeContent(String html) {
+    final iframe = _iframe;
+    if (iframe == null) return;
+    _revokeBlobUrl();
+    iframe.removeAttribute('srcdoc');
+    iframe.src = '';
+    iframe.srcdoc = html.toJS;
+    _log('iframe content assigned with srcdoc');
+  }
+
+  void _revokeBlobUrl() {
+    final blobUrl = _blobUrl;
+    if (blobUrl == null) return;
+
+    _log('revoking previous Blob URL');
+    web.URL.revokeObjectURL(blobUrl);
+    _blobUrl = null;
   }
 
   @override
   void dispose() {
-    sub?.cancel();
+    _log('dispose connected=$_isConnected');
+    _stopSafariMountWatch();
+
+    final iframe = _iframe;
+    if (iframe != null) {
+      iframe.src = 'about:blank';
+      if (_loadListener != null) {
+        iframe.removeEventListener('load', _loadListener!);
+      }
+      if (_errorListener != null) {
+        iframe.removeEventListener('error', _errorListener!);
+      }
+    }
+
+    final container = _safariContainer;
+    if (container != null) {
+      while (container.firstChild != null) {
+        container.removeChild(container.firstChild!);
+      }
+    }
+
+    _messageSubscription?.cancel();
+    _revokeBlobUrl();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: HtmlElementView(viewType: _viewId),
+    if (_useInAppWebView) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final width = _resolveDimension(
+            preferred: widget.captchaWidth,
+            constraint: constraints.maxWidth,
+          );
+          final height = _resolveDimension(
+            preferred: widget.captchaHeight,
+            constraint: constraints.maxHeight,
+          );
+
+          return SizedBox(
+            width: width,
+            height: height,
+            child: _buildInAppWebView(),
+          );
+        },
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = _resolveDimension(
+          preferred: widget.captchaWidth,
+          constraint: constraints.maxWidth,
+        );
+        final height = _resolveDimension(
+          preferred: widget.captchaHeight,
+          constraint: constraints.maxHeight,
+        );
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _applyExplicitSize(width, height);
+          if (_useSafariDirectDom) {
+            _tryMountSafariContent(force: true);
+            _fixSafariPlatformViewVisibility();
+            if (_needsSafariMountWatch()) {
+              _startSafariMountWatch();
+            }
+          }
+        });
+
+        return SizedBox(
+          width: width,
+          height: height,
+          child: HtmlElementView(viewType: _viewId),
+        );
+      },
     );
   }
-}
 
+  double _resolveDimension({
+    required double preferred,
+    required double constraint,
+  }) {
+    if (constraint.isFinite && constraint > 0) {
+      return constraint;
+    }
+    return preferred;
+  }
+}

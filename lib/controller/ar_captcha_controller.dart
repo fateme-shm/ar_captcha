@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -81,6 +82,12 @@ class ArCaptchaController {
   /// Show overlay Text loading before captcha loaded
   final String? loadingOverlayText;
 
+  /// Uses `flutter_inappwebview` for the web captcha surface when running on web.
+  /// Defaults to `false` to preserve the current HtmlElementView-based behavior.
+  final bool useInAppWebViewOnWeb;
+
+  final bool enableDebugLogging;
+
   /// Constructor initializes required fields
   /// and builds the HTML section.
   ArCaptchaController({
@@ -90,7 +97,7 @@ class ArCaptchaController {
     this.onErrorMessage = 'Something went wrong, try again!',
     this.errorPrint = 0,
     this.captchaWidth = 550,
-    this.captchaHeight = 450,
+    this.captchaHeight = 550,
     this.color = Colors.black,
     this.theme = ThemeMode.light,
     this.dataSize = DataSize.normal,
@@ -98,7 +105,16 @@ class ArCaptchaController {
     this.maxResponsiveDialogWidth = 600,
     this.needToShowLoadingOverlay = true,
     this.loadingOverlayText = 'Loading captcha ...',
+    this.useInAppWebViewOnWeb = false,
+    this.enableDebugLogging = false,
   }) {
+    _log(
+      'created domain=$domain siteKeyConfigured=${siteKey.isNotEmpty} '
+      'lang=$lang dataSize=${dataSize.name} theme=${theme.name} '
+      'captcha=${captchaWidth}x$captchaHeight '
+      'webMode=${useInAppWebViewOnWeb ? "inappwebview" : "html-element"}',
+    );
+
     _htmlContent = _buildHtmlSection();
   }
 
@@ -134,7 +150,7 @@ class ArCaptchaController {
         <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <script src="https://widget.arcaptcha.ir/1/api.js?domain=$domain" async></script>
+          <script src="https://widget.arcaptcha.ir/1/api.js?domain=$domain" async defer></script>
           <style>
           
           * {
@@ -179,7 +195,7 @@ class ArCaptchaController {
             text-indent: -9999em;
             animation: mulShdSpin 1.1s infinite ease;
             transform: translateZ(0);
-            background: background: ${dataSize == DataSize.invisible ? 'transparent' : theme == ThemeMode.light ? '#ffffff' : '#333333'}; !important;
+            background: ${dataSize == DataSize.invisible ? 'transparent' : theme == ThemeMode.light ? '#ffffff' : '#333333'} !important;
           }
 
           @keyframes mulShdSpin {
@@ -280,7 +296,7 @@ class ArCaptchaController {
           position: fixed;
           top: 0; left: 0;
           width: 100%; height: 100%;
-          background: background: ${dataSize == DataSize.invisible ? 'transparent' : theme == ThemeMode.light ? '#ffffff' : '#333333'};
+          background: ${dataSize == DataSize.invisible ? 'transparent' : theme == ThemeMode.light ? '#ffffff' : '#333333'};
           display: flex;
           align-items: center;
           justify-content: center;
@@ -302,8 +318,17 @@ class ArCaptchaController {
           </div>
           
           <script>
-              <!-- Posts data back to Flutter (Android/iOS) or WebView (Web). -->  
+              const debugLoggingEnabled = ${enableDebugLogging.toString()};
+
+              function log(message) {
+                if (debugLoggingEnabled) {
+                  console.log('[ArCaptcha][HTML] ' + message);
+                }
+              }
+
+              <!-- Posts data back to Flutter (mobile), HtmlElementView (web), or Flutter InAppWebView (web). -->
               function post(type, payload = null) {     
+                log('post type=' + type + ' payload=' + (payload ?? ''));
 
                 <!-- Callback for Web platforms -->  
                 if (window.self !== window.top) {
@@ -317,36 +342,56 @@ class ArCaptchaController {
                   window.Captcha.postMessage(JSON.stringify({ type, payload }));
                 }
               }
+
+              function postState(payload) {
+                post("state", payload);
+              }
             
               <!-- Success callback -->
-              function onVerified(token){ post("success", token); }
+              function onVerified(token){
+                log('captcha verified tokenLength=' + ((token || '').length));
+                post("success", token);
+              }
                             
               <!-- Error callback -->
-              function onError(error){ post("error", error); }
+              function onError(error){
+                log('captcha error=' + (error ?? 'unknown'));
+                post("error", error);
+              }
             
               <!-- Show loader for captcha -->
               const checkInterval = setInterval(() => {
                 if (typeof arcaptcha !== 'undefined' && typeof arcaptcha.execute === 'function') {
                   clearInterval(checkInterval);
+                  postState('arcaptcha-ready');
                   const loader = document.getElementById('loader');
                   if (loader) {
                     loader.style.display = 'none';
+                    postState('loader-hidden');
                   }
                 }
               }, 150);
 
               window.onload = function() {
+                postState('window-loaded');
                 if(${dataSize == DataSize.invisible}) {
-                  const checkInterval = setInterval(() => {
+                  postState('invisible-mode');
+                  const invisibleCheckInterval = setInterval(() => {
                     if (typeof arcaptcha !== 'undefined' && typeof arcaptcha.execute === 'function') {
-                      arcaptcha.execute();
-                      clearInterval(checkInterval);
-                      post("execute-called");
-                      
-                      <!-- Remove loader display -->
-                      const loader = document.getElementById('loader');
-                      if (loader) {
-                        loader.style.display = 'none';
+                      try {
+                        arcaptcha.execute();
+                        clearInterval(invisibleCheckInterval);
+                        post("execute-called");
+                        
+                        <!-- Remove loader display -->
+                        const loader = document.getElementById('loader');
+                        if (loader) {
+                          loader.style.display = 'none';
+                          postState('loader-hidden-after-execute');
+                        }
+                      } catch (error) {
+                        clearInterval(invisibleCheckInterval);
+                        post("error", String(error));
                       }
                     }
                   }, 150);
@@ -371,6 +416,10 @@ class ArCaptchaController {
   }) async {
     String? token;
 
+    _log(
+      'showCaptcha requestedMode=${params.mode} mounted=${context.mounted}',
+    );
+
     switch (params.mode) {
       case CaptchaType.screen:
         token = await _showAsScreen(context);
@@ -383,8 +432,10 @@ class ArCaptchaController {
     }
 
     if (token != null) {
+      _log('captcha completed tokenLength=${token.length}');
       params.onSuccess(token);
     } else {
+      _log('captcha closed or failed without a token');
       params.onError(onErrorMessage);
     }
 
@@ -400,12 +451,15 @@ class ArCaptchaController {
         child: SizedBox(
           height: captchaHeight,
           width: captchaWidth,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: ArCaptchaSectionHolder(
+          child: _clipCaptchaChild(
+            ArCaptchaSectionHolder(
               htmlWidget: _htmlContent,
+              captchaHeight: captchaHeight,
+              captchaWidth: captchaWidth,
               loadingText: loadingOverlayText,
               showLoadingOverlay: needToShowLoadingOverlay,
+              useInAppWebViewOnWeb: useInAppWebViewOnWeb,
+              enableDebugLogging: enableDebugLogging,
             ),
           ),
         ),
@@ -424,12 +478,15 @@ class ArCaptchaController {
           ),
           body: SafeArea(
             child: SizedBox.expand(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: ArCaptchaSectionHolder(
+              child: _clipCaptchaChild(
+                ArCaptchaSectionHolder(
                   htmlWidget: _htmlContent,
+                  captchaHeight: captchaHeight,
+                  captchaWidth: captchaWidth,
                   loadingText: loadingOverlayText,
                   showLoadingOverlay: needToShowLoadingOverlay,
+                  useInAppWebViewOnWeb: useInAppWebViewOnWeb,
+                  enableDebugLogging: enableDebugLogging,
                 ),
               ),
             ),
@@ -446,12 +503,15 @@ class ArCaptchaController {
     CustomModalBottomSheet(
       bottomSheetModal: SizedBox(
         height: captchaHeight,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: ArCaptchaSectionHolder(
+        child: _clipCaptchaChild(
+          ArCaptchaSectionHolder(
             htmlWidget: _htmlContent,
+            captchaHeight: captchaHeight,
+            captchaWidth: captchaWidth,
             loadingText: loadingOverlayText,
             showLoadingOverlay: needToShowLoadingOverlay,
+            useInAppWebViewOnWeb: useInAppWebViewOnWeb,
+            enableDebugLogging: enableDebugLogging,
           ),
         ),
       ),
@@ -473,12 +533,15 @@ class ArCaptchaController {
         dialogChildWidget: SizedBox(
           height: captchaHeight,
           width: captchaWidth,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: ArCaptchaSectionHolder(
+          child: _clipCaptchaChild(
+            ArCaptchaSectionHolder(
               htmlWidget: _htmlContent,
+              captchaHeight: captchaHeight,
+              captchaWidth: captchaWidth,
               loadingText: loadingOverlayText,
               showLoadingOverlay: needToShowLoadingOverlay,
+              useInAppWebViewOnWeb: useInAppWebViewOnWeb,
+              enableDebugLogging: enableDebugLogging,
             ),
           ),
         ),
@@ -488,5 +551,27 @@ class ArCaptchaController {
     );
 
     return await completer.future;
+  }
+
+  /// Wraps captcha content. [ClipRRect] breaks [HtmlElementView] on Safari
+  /// when Flutter uses the CanvasKit renderer, so skip clipping on web.
+  Widget _clipCaptchaChild(Widget child) {
+    if (kIsWeb) {
+      return child;
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: child,
+    );
+  }
+
+  // ------------------------- Logger functions -------------------------
+
+  void _log(String message) {
+    if (enableDebugLogging) {
+      // ignore: avoid_print
+      print('[ArCaptcha][Controller] $message');
+    }
   }
 }
